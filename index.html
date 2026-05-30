@@ -29,12 +29,13 @@
   #dpad-left  { left:14px;  bottom:20px;  width:76px; height:76px; font-size:24px; background:rgba(70,110,190,.32); border:1.5px solid rgba(150,200,255,.55); }
   #dpad-right { left:106px; bottom:20px;  width:76px; height:76px; font-size:24px; background:rgba(70,110,190,.32); border:1.5px solid rgba(150,200,255,.55); }
   /* right cluster: action buttons (bottom-right, diamond layout) */
-  #btn-fire   { right:16px;  bottom:74px;  width:62px; height:62px; background:rgba(210,60,50,.36); border:1.5px solid rgba(255,150,140,.6); font-size:12px; }
-  #btn-melee  { right:84px;  bottom:30px;  width:54px; height:54px; background:rgba(120,80,210,.34); border:1.5px solid rgba(200,160,255,.6); font-size:12px; }
-  #btn-jump   { right:16px;  bottom:8px;   width:54px; height:54px; background:rgba(50,190,110,.34); border:1.5px solid rgba(150,255,180,.6); font-size:13px; }
+  /* 射擊↔近戰 互換位置且等大(70px)，整體右下叢集往內縮避開圓角 */
+  #btn-melee  { right:40px;  bottom:104px; width:70px; height:70px; background:rgba(120,80,210,.34); border:1.5px solid rgba(200,160,255,.6); font-size:14px; }
+  #btn-fire   { right:118px; bottom:56px;  width:70px; height:70px; background:rgba(210,60,50,.36); border:1.5px solid rgba(255,150,140,.6); font-size:14px; }
+  #btn-jump   { right:48px;  bottom:28px;  width:58px; height:58px; background:rgba(50,190,110,.34); border:1.5px solid rgba(150,255,180,.6); font-size:14px; }
   /* weapon swap: small, upper area of right cluster */
-  #btn-swR    { right:90px;  bottom:96px;  width:42px; height:42px; background:rgba(180,120,40,.32); border:1.5px solid rgba(255,200,130,.55); font-size:10px; }
-  #btn-swM    { right:140px; bottom:60px;  width:42px; height:42px; background:rgba(180,120,40,.32); border:1.5px solid rgba(255,200,130,.55); font-size:10px; }
+  #btn-swR    { right:122px; bottom:140px; width:46px; height:46px; background:rgba(180,120,40,.32); border:1.5px solid rgba(255,200,130,.55); font-size:11px; }
+  #btn-swM    { right:190px; bottom:104px; width:46px; height:46px; background:rgba(180,120,40,.32); border:1.5px solid rgba(255,200,130,.55); font-size:11px; }
   /* fullscreen button */
   #fsBtn { position:fixed; top:8px; right:12%; z-index:20; pointer-events:auto;
            padding:6px 10px; font-size:12px; color:#cfe; background:rgba(20,30,50,.6);
@@ -182,6 +183,15 @@ addEventListener('keydown',e=>{ const k=kmap[e.code]; if(k){ e.preventDefault();
   if(k==='swM'&&!keys.swM)cycleMelee();
   keys[k]=true; }});
 addEventListener('keyup',e=>{ const k=kmap[e.code]; if(k)keys[k]=false; });
+// 角色選擇畫面的鍵盤操作（與遊戲操作分開處理）
+addEventListener('keydown',e=>{
+  if(state==='TITLE'||state==='GAMEOVER'||state==='VICTORY'){ if(e.code==='Enter')gotoSelect(); return; }
+  if(state==='SELECT'){
+    if(e.code==='ArrowLeft'||e.code==='KeyA'){ selLegion=(selLegion+LEGIONS.length-1)%LEGIONS.length; sfx('E5'); }
+    else if(e.code==='ArrowRight'||e.code==='KeyD'){ selLegion=(selLegion+1)%LEGIONS.length; sfx('E5'); }
+    else if(e.code==='Enter'||e.code==='Space'){ e.preventDefault(); confirmSelect(); }
+  }
+});
 function bindBtn(id,key,onPress){ const el=document.getElementById(id);
   const dn=e=>{e.preventDefault();keys[key]=true;if(onPress)onPress();};
   const up=e=>{e.preventDefault();keys[key]=false;};
@@ -191,8 +201,8 @@ function bindBtn(id,key,onPress){ const el=document.getElementById(id);
 bindBtn('dpad-left','left'); bindBtn('dpad-right','right');
 bindBtn('btn-jump','jump'); bindBtn('btn-fire','fire'); bindBtn('btn-melee','melee');
 bindBtn('btn-swR','swR',cycleRanged); bindBtn('btn-swM','swM',cycleMelee);
-CV.addEventListener('click',()=>{ if(state==='TITLE'||state==='GAMEOVER'||state==='VICTORY')handleStart(); });
-CV.addEventListener('touchstart',e=>{ if(state==='TITLE'||state==='GAMEOVER'||state==='VICTORY'){e.preventDefault();handleStart();} });
+CV.addEventListener('click',e=>{ if(state==='SELECT')selectClick(e); else if(state==='TITLE'||state==='GAMEOVER'||state==='VICTORY')gotoSelect(); });
+CV.addEventListener('touchstart',e=>{ if(state==='SELECT'){e.preventDefault();selectClick(e.touches[0]);} else if(state==='TITLE'||state==='GAMEOVER'||state==='VICTORY'){e.preventDefault();gotoSelect();} });
 
 //------------------------ AUDIO -----------------------------
 let audioReady=false, musicMode='none';
@@ -387,6 +397,25 @@ let bgStars=[],bgBuildings=[],bgFarFight=[],satellites=[];
 
 function cycleRanged(){ if(state!=='PLAY')return; player.rw=(player.rw+1)%RANGED.length; sfx('G5'); }
 function cycleMelee(){ if(state!=='PLAY')return; player.mw=(player.mw+1)%3; sfx('D5'); }
+
+// ----- 軍團 / 角色選擇 -----
+const LEGIONS=[
+  {name:'極限戰士', en:'ULTRAMARINES',  hero:'提圖斯 TITUS',      color:'#2f5fb0', trim:'#e8c43a', perk:'堅毅 — 最大生命 +30',      apply:p=>{ p.maxhp=130; p.hp=130; }},
+  {name:'血天使',   en:'BLOOD ANGELS',  hero:'但丁 DANTE',        color:'#b3252b', trim:'#ffd24a', perk:'狂怒 — 近戰起始 Lv3',      apply:p=>{ p.mlvl=[3,1,1]; p.mw=0; }},
+  {name:'太空野狼', en:'SPACE WOLVES',  hero:'羅根 LOGAN',        color:'#7d93ad', trim:'#e8e2d0', perk:'狼護 — 護盾+60 生命+10',   apply:p=>{ p.shield=60; p.maxhp=110; p.hp=110; }},
+  {name:'暗黑天使', en:'DARK ANGELS',   hero:'以西結 EZEKIEL',    color:'#1f6b46', trim:'#cdb86a', perk:'死亡使者 — 爆彈槍起始 Lv3', apply:p=>{ p.rlvl=[3,1,1,1]; p.rw=0; }},
+  {name:'帝國之拳', en:'IMPERIAL FISTS',hero:'利西克斯 LYSANDER', color:'#e0a92b', trim:'#fff0c0', perk:'攻城 — 電磁砲Lv2 能量+50',  apply:p=>{ p.rlvl=[1,1,2,1]; p.rw=2; p.energy=50; }}
+];
+let selLegion=0;
+function gotoSelect(){ initAudio(); state='SELECT'; }
+function confirmSelect(){ if(!audioReady)initAudio().then(startGame); else startGame(); } // startGame 內套用所選軍團
+function selectClick(pt){
+  const rect=CV.getBoundingClientRect();
+  const ix=(pt.clientX-rect.left)/rect.width*VW, iy=(pt.clientY-rect.top)/rect.height*VH;
+  if(iy>=216 && iy<=246 && ix>=VW/2-90 && ix<=VW/2+90){ confirmSelect(); return; } // 確認出戰按鈕
+  for(let i=0;i<LEGIONS.length;i++){ const x=19+i*90;
+    if(ix>=x && ix<=x+82 && iy>=44 && iy<=194){ if(i===selLegion)confirmSelect(); else { selLegion=i; sfx('E5'); } return; } }
+}
 
 //------------------------ LEVEL -----------------------------
 function buildBackground(){
@@ -830,7 +859,8 @@ function drawGun(cx,gy,f,rw){ X.save(); X.translate(cx,gy); if(f<0)X.scale(-1,1)
 function drawMarine(){
   const p=player; if(p.inv>0&&p.blessing<=0&&Math.floor(p.inv/4)%2===0)return;
   const sx=p.x-camX, sy=p.y, f=p.face;
-  const blue='#2b4c9b',blueL='#4470d6',blueD='#16264f',trim='#e0bd4f',steel='#888';
+  const LG=LEGIONS[selLegion];
+  const blue=LG.color,blueL=shade(LG.color,1.45),blueD=shade(LG.color,0.5),trim=LG.trim,steel='#888';
   // power pack
   const packX=f>0?sx+1:sx+p.w-9;
   X.fillStyle=blueD; X.fillRect(packX,sy+10,8,16); X.fillStyle=steel; X.fillRect(packX+1,sy+9,6,3); X.fillStyle='#5af'; X.fillRect(packX+2,sy+11,2,3);
@@ -1104,6 +1134,7 @@ function handleStart(){ initAudio().then(()=>{ if(state==='TITLE'||state==='GAME
 function startGame(){
   level=0; score=0; player.hp=player.maxhp=100; player.shield=0; player.energy=0;
   player.rw=0; player.mw=0; player.rlvl=[1,1,1,1]; player.mlvl=[1,1,1]; player.blessing=0; player.inv=0;
+  LEGIONS[selLegion].apply(player); // 套用所選軍團初期加成
   musicMode='none'; state='PLAY'; buildLevel();
 }
 
@@ -1118,7 +1149,9 @@ function loop(){
   update(); X.clearRect(0,0,VW,VH);
   const playing=(state==='PLAY'||state==='TRANS');
   pauseBtn.style.display=playing?'block':'none';
+  if(isMobile)document.getElementById('touch').style.display=playing?'block':'none'; // 非遊戲狀態收起觸控盤
   if(state==='TITLE'){ drawTitle(); }
+  else if(state==='SELECT'){ drawSelect(); }
   else { drawBackground(); drawPlatforms(); drawPools(); drawDrops(); enemies.forEach(drawEnemy); drawBoss(); drawBullets(); drawMarine(); drawParticles(); drawHUD();
     if(paused&&playing)drawPauseOverlay();
     if(state==='GAMEOVER')drawGameOver(); if(state==='VICTORY')drawVictory(); }
