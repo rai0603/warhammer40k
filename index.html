@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="為了帝皇">
 <meta name="theme-color" content="#05060a">
-<meta name="build" content="2026.05.30.3">
+<meta name="build" content="2026.05.30.4">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; }
@@ -343,11 +343,23 @@ async function initAudio(){
   },'16n');
   audioReady=true;
 }
+// 開場 / 選角 共用的選單主題（D 小調莊嚴進行曲，bpm 100）— 用既有 buildTrack DSL
+const MENU_SONG={ bpm:100, dk:false, bars:[
+  {root:'D',  lead:['D4',0,'F4',0,'A4',0,'D5',0]},
+  {root:'D',  lead:[0,'A4',0,'F4','D4',0,'A3',0]},
+  {root:'Bb', lead:['Bb3',0,'D4',0,'F4',0,'Bb4',0]},
+  {root:'F',  lead:['F4',0,'A4',0,'C5',0,'A4',0]},
+  {root:'C',  lead:['C4',0,'E4',0,'G4',0,'C5',0]},
+  {root:'A',  lead:['A3',0,'C#4',0,'E4',0,'A4',0]},
+  {root:'D',  lead:['D4',0,'F4',0,'A4',0,'D5',0]},
+  {root:'A',  lead:['A4',0,'E4',0,'C#4',0,'A3',0]} ]};
+let menuTrack=null;
+function buildMenuTrack(){ return buildTrack(MENU_SONG); }
 function setMusic(mode){
   if(!audioReady)return; if(musicMode===mode && mode!=='stage')return;
   const fresh=(musicMode==='none');
   musicMode=mode; mStep=0;
-  Tone.Transport.bpm.value=(mode==='boss')?BOSS_SONG.bpm:(STAGE_SONGS[level]||STAGE_SONGS[0]).bpm;
+  Tone.Transport.bpm.value=(mode==='menu')?MENU_SONG.bpm:(mode==='boss')?BOSS_SONG.bpm:(STAGE_SONGS[level]||STAGE_SONGS[0]).bpm;
   if(musicLoop && fresh){ musicLoop.start(0); }
   if(Tone.Transport.state!=='started') Tone.Transport.start();
 }
