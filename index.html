@@ -10,6 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="為了帝皇">
 <meta name="theme-color" content="#05060a">
+<meta name="build" content="2026.05.30.1">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; }
@@ -50,6 +51,10 @@
            border:1px solid rgba(120,220,150,.55); border-radius:6px; display:none;
            backdrop-filter:blur(2px); -webkit-backdrop-filter:blur(2px); font-family:'Courier New',monospace; }
   #hint { position:fixed; left:50%; bottom:6px; transform:translateX(-50%); color:#557; font-size:11px; z-index:5; text-align:center; }
+  #updateBanner { position:fixed; top:10px; left:50%; transform:translateX(-50%); z-index:50; display:flex; gap:8px; align-items:center;
+    background:rgba(20,28,46,.96); color:#cfe; font:600 12px 'Courier New',monospace; padding:6px 8px 6px 12px;
+    border:1px solid rgba(120,160,220,.6); border-radius:8px; box-shadow:0 3px 12px rgba(0,0,0,.5); }
+  #updateBanner button { font:600 12px 'Courier New',monospace; color:#fff; background:#2f6fd0; border:none; border-radius:6px; padding:5px 10px; cursor:pointer; }
 </style>
 </head>
 <body>
@@ -106,26 +111,34 @@
             {src:icon512,sizes:'512x512',type:'image/png',purpose:'any maskable'} ] };
   const mBlob=new Blob([JSON.stringify(manifest)],{type:'application/manifest+json'});
   const ml=document.createElement('link'); ml.rel='manifest'; ml.href=URL.createObjectURL(mBlob); document.head.appendChild(ml);
-  // service worker (inline blob) — cache-first for offline play
-  if('serviceWorker' in navigator){
-    const swCode=`
-      const C='wh40k-v1';
-      self.addEventListener('install',e=>{ self.skipWaiting(); });
-      self.addEventListener('activate',e=>{ e.waitUntil(self.clients.claim()); });
-      self.addEventListener('fetch',e=>{
-        e.respondWith(
-          caches.open(C).then(cache=>
-            cache.match(e.request).then(hit=> hit || fetch(e.request).then(res=>{
-              try{ if(e.request.method==='GET' && res.status===200) cache.put(e.request,res.clone()); }catch(_){}
-              return res;
-            }).catch(()=>hit))
-          )
-        );
-      });`;
-    const swBlob=new Blob([swCode],{type:'text/javascript'});
-    const swUrl=URL.createObjectURL(swBlob);
-    window.addEventListener('load',()=>{ navigator.serviceWorker.register(swUrl).catch(()=>{}); });
+  // service worker (./sw.js) — network-first 離線備援 + 自動更新提示（只清快取，不動 localStorage 分數）
+  function showUpdateBanner(onUpdate){
+    if(document.getElementById('updateBanner'))return;
+    const b=document.createElement('div'); b.id='updateBanner';
+    b.innerHTML='<span>🔄 有新版本</span><button id="updateGo">立即更新</button>';
+    document.body.appendChild(b);
+    document.getElementById('updateGo').addEventListener('click',()=>{ b.remove(); onUpdate(); });
   }
+  function checkBuild(){ // 比對線上 index.html 的 build 版本，有新版就提示
+    fetch('./index.html?_='+Date.now(),{cache:'no-store'}).then(r=>r.text()).then(t=>{
+      const m=t.match(/name="build" content="([^"]+)"/);
+      const cur=(document.querySelector('meta[name=build]')||{}).content;
+      if(m && cur && m[1]!==cur) showUpdateBanner(()=>location.reload());
+    }).catch(()=>{});
+  }
+  if('serviceWorker' in navigator){
+    let updateReady=false;
+    window.addEventListener('load',()=>{
+      navigator.serviceWorker.register('./sw.js').then(reg=>{
+        reg.addEventListener('updatefound',()=>{ const nw=reg.installing; if(!nw)return;
+          nw.addEventListener('statechange',()=>{ if(nw.state==='installed' && navigator.serviceWorker.controller){ showUpdateBanner(()=>{ updateReady=true; nw.postMessage('skipWaiting'); }); } });
+        });
+        setInterval(()=>reg.update().catch(()=>{}), 120000);
+      }).catch(()=>{});
+      navigator.serviceWorker.addEventListener('controllerchange',()=>{ if(updateReady)location.reload(); });
+      checkBuild(); setInterval(checkBuild,120000);
+    });
+  } else { window.addEventListener('load',()=>{ checkBuild(); setInterval(checkBuild,120000); }); }
 })();
 </script>
 <script>
@@ -564,7 +577,7 @@ function hurtPlayer(dmg){ if(player.inv>0||player.blessing>0)return;
   player.hp-=dmg; player.inv=50; hurtSfx();
   for(let i=0;i<8;i++)particles.push({x:player.x+13,y:player.y+22,vx:(Math.random()-.5)*5,vy:(Math.random()-.5)*5,life:14,c:'#f44'});
   if(player.hp<=0){ player.hp=0; gameOver(); } }
-function gameOver(){ state='GAMEOVER'; stopMusic(); }
+function gameOver(){ state='GAMEOVER'; stopMusic(); recordScore(false); }
 
 //------------------------ UPDATE ----------------------------
 function update(){
@@ -574,7 +587,7 @@ function update(){
   if(state==='TRANS'){ transTimer--;
     particles.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=0.15;p.life--;}); particles=particles.filter(p=>p.life>0);
     drops.forEach(d=>{d.t++;d.y+=d.vy;d.vy+=0.18;if(d.y>GROUND-12){d.y=GROUND-12;d.vy=0;}});
-    if(transTimer<=0){ level++; if(level>=5){ state='VICTORY'; stopMusic(); return; } state='PLAY'; musicMode='none'; buildLevel(); }
+    if(transTimer<=0){ level++; if(level>=5){ recordScore(true); state='VICTORY'; stopMusic(); return; } state='PLAY'; musicMode='none'; buildLevel(); }
     return;
   }
   if(player.fireCD>0)player.fireCD--; if(player.meleeCD>0)player.meleeCD--;
@@ -1110,21 +1123,53 @@ function drawSelect(){
   X.fillStyle='#778'; X.font='8px "Courier New"'; X.fillText(isMobile?'點卡片選擇 · 再點卡片或下方按鈕出戰':'← → 選擇   ENTER 出戰', VW/2, 258);
   X.textAlign='left';
 }
+// ----- 本地排行榜（存於玩家手機 localStorage；版本更新只清快取，不會清除分數） -----
+const SCORE_KEY='wh40k_scores_v1';
+let lastRank=-1, lastScore=-1;
+function loadScores(){ try{ return JSON.parse(localStorage.getItem(SCORE_KEY))||[]; }catch(_){ return []; } }
+function todayStr(){ const d=new Date(); return (d.getMonth()+1)+'/'+d.getDate(); }
+function recordScore(won){
+  try{
+    const list=loadScores();
+    const entry={ s:score, st:won?5:(level+1), lg:LEGIONS[selLegion].name, w:won?1:0, d:todayStr() };
+    list.push(entry); list.sort((a,b)=>b.s-a.s);
+    lastRank=list.indexOf(entry); lastScore=score;
+    localStorage.setItem(SCORE_KEY, JSON.stringify(list.slice(0,20)));
+  }catch(_){ lastRank=-1; }
+}
+function drawLeaderboard(topY){
+  const list=loadScores().slice(0,5);
+  X.textAlign='center'; X.fillStyle='#ffd24a'; X.font='bold 11px "Courier New"';
+  X.fillText('排行榜 BEST SCORES',VW/2,topY);
+  if(!list.length){ X.fillStyle='#667'; X.font='9px "Courier New"'; X.fillText('尚無紀錄 — 開始你的第一場戰役',VW/2,topY+16); X.textAlign='left'; return; }
+  for(let i=0;i<list.length;i++){ const e=list[i], y=topY+16+i*14, hot=(i===lastRank && e.s===lastScore);
+    X.font='10px "Courier New"'; X.fillStyle=hot?'#fff':(i===0?'#ffd24a':'#9ab');
+    X.textAlign='left';  X.fillText((i+1)+'.  '+e.lg, VW/2-92, y);
+    X.textAlign='right'; X.fillText((e.w?'★ ':'')+e.s, VW/2+58, y);
+    X.fillStyle=hot?'#cfe':'#667'; X.font='8px "Courier New"'; X.textAlign='left'; X.fillText('S'+e.st+'·'+e.d, VW/2+64, y);
+  }
+  X.textAlign='left';
+}
 function drawGameOver(){
-  X.fillStyle='rgba(0,0,0,0.85)'; X.fillRect(0,0,VW,VH); X.textAlign='center';
-  X.fillStyle='#e23a3a'; X.font='bold 28px "Courier New"'; X.fillText('YOU DIED',VW/2,110);
-  X.fillStyle='#fff'; X.font='10px "Courier New"'; X.fillText('帝皇庇佑著你的英靈',VW/2,132); X.fillText('STAGE '+(level+1)+'   SCORE '+score,VW/2,152);
-  if(Math.floor(titleT++/24)%2===0){ X.fillStyle='#ffd24a'; X.font='11px "Courier New"'; X.fillText(isMobile?'點擊重新開始':'按 ENTER 重新開始',VW/2,184); }
+  X.fillStyle='rgba(0,0,0,0.88)'; X.fillRect(0,0,VW,VH); X.textAlign='center';
+  X.fillStyle='#e23a3a'; X.font='bold 24px "Courier New"'; X.fillText('YOU DIED',VW/2,46);
+  X.fillStyle='#fff'; X.font='10px "Courier New"'; X.fillText('帝皇庇佑著你的英靈',VW/2,64);
+  X.fillStyle='#cfe'; X.font='12px "Courier New"'; X.fillText('STAGE '+(level+1)+'   SCORE '+score,VW/2,84);
+  if(lastRank===0){ X.fillStyle='#ffd24a'; X.font='bold 12px "Courier New"'; X.fillText('★ 最高分新紀錄！★',VW/2,103); }
+  else if(lastRank>=0 && lastRank<5){ X.fillStyle='#9ec'; X.font='10px "Courier New"'; X.fillText('新進榜 — 第 '+(lastRank+1)+' 名',VW/2,103); }
+  drawLeaderboard(126);
+  if(Math.floor(titleT++/24)%2===0){ X.fillStyle='#ffd24a'; X.font='11px "Courier New"'; X.fillText(isMobile?'點擊重新開始':'按 ENTER 重新開始',VW/2,240); }
   X.textAlign='left';
 }
 function drawVictory(){
   X.fillStyle='#000'; X.fillRect(0,0,VW,VH); titleT++;
   X.fillStyle='#fff'; for(let i=0;i<60;i++){ const sx=(i*61+titleT*0.5)%VW,sy=(i*41)%VH; X.fillRect(sx,sy,1,1);} X.textAlign='center';
-  X.fillStyle='#ffd24a'; X.font='bold 24px "Courier New"'; X.fillText('★ 勝 利 ★',VW/2,90);
-  X.fillStyle='#5ad6ff'; X.font='14px "Courier New"'; X.fillText('巢皇已殞落',VW/2,118);
-  X.fillStyle='#fff'; X.font='9px "Courier New"'; X.fillText('你淨化了這顆星球，為帝皇贏得榮耀。',VW/2,142); X.fillText('THE EMPEROR PROTECTS',VW/2,158);
-  X.fillStyle='#e23a3a'; X.font='12px "Courier New"'; X.fillText('FINAL SCORE  '+score,VW/2,184);
-  if(Math.floor(titleT/24)%2===0){ X.fillStyle='#aaa'; X.font='10px "Courier New"'; X.fillText(isMobile?'點擊再玩一次':'按 ENTER 再玩一次',VW/2,212); }
+  X.fillStyle='#ffd24a'; X.font='bold 22px "Courier New"'; X.fillText('★ 勝 利 ★',VW/2,40);
+  X.fillStyle='#5ad6ff'; X.font='11px "Courier New"'; X.fillText('巢皇已殞落 — THE EMPEROR PROTECTS',VW/2,60);
+  X.fillStyle='#e23a3a'; X.font='bold 13px "Courier New"'; X.fillText('FINAL SCORE  '+score,VW/2,82);
+  if(lastRank===0){ X.fillStyle='#ffd24a'; X.font='bold 11px "Courier New"'; X.fillText('★ 最高分新紀錄！★',VW/2,100); }
+  drawLeaderboard(124);
+  if(Math.floor(titleT/24)%2===0){ X.fillStyle='#aaa'; X.font='10px "Courier New"'; X.fillText(isMobile?'點擊再玩一次':'按 ENTER 再玩一次',VW/2,240); }
   X.textAlign='left';
 }
 function handleStart(){ initAudio().then(()=>{ if(state==='TITLE'||state==='GAMEOVER'||state==='VICTORY')startGame(); }); }
