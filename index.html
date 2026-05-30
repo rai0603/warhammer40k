@@ -177,20 +177,17 @@ const keys={left:false,right:false,jump:false,fire:false,melee:false,swR:false,s
 const kmap={ArrowLeft:'left',KeyA:'left',ArrowRight:'right',KeyD:'right',
   ArrowUp:'jump',KeyW:'jump',Space:'jump',KeyJ:'fire',KeyK:'melee',KeyU:'swR',KeyI:'swM',Enter:'start',KeyP:'pause',Escape:'pause'};
 addEventListener('keydown',e=>{ const k=kmap[e.code]; if(k){ e.preventDefault();
-  if(k==='start'){handleStart();return;}
+  if(k==='start'){ if(state==='SELECT')confirmSelect(); else gotoSelect(); return;}
   if(k==='pause'){ togglePause(); return; }
   if(k==='swR'&&!keys.swR)cycleRanged();
   if(k==='swM'&&!keys.swM)cycleMelee();
   keys[k]=true; }});
 addEventListener('keyup',e=>{ const k=kmap[e.code]; if(k)keys[k]=false; });
-// 角色選擇畫面的鍵盤操作（與遊戲操作分開處理）
+// 角色選擇畫面：←→ 切換軍團（Enter 出戰由上方 kmap 處理）
 addEventListener('keydown',e=>{
-  if(state==='TITLE'||state==='GAMEOVER'||state==='VICTORY'){ if(e.code==='Enter')gotoSelect(); return; }
-  if(state==='SELECT'){
-    if(e.code==='ArrowLeft'||e.code==='KeyA'){ selLegion=(selLegion+LEGIONS.length-1)%LEGIONS.length; sfx('E5'); }
-    else if(e.code==='ArrowRight'||e.code==='KeyD'){ selLegion=(selLegion+1)%LEGIONS.length; sfx('E5'); }
-    else if(e.code==='Enter'||e.code==='Space'){ e.preventDefault(); confirmSelect(); }
-  }
+  if(state!=='SELECT')return;
+  if(e.code==='ArrowLeft'||e.code==='KeyA'){ selLegion=(selLegion+LEGIONS.length-1)%LEGIONS.length; sfx('E5'); }
+  else if(e.code==='ArrowRight'||e.code==='KeyD'){ selLegion=(selLegion+1)%LEGIONS.length; sfx('E5'); }
 });
 function bindBtn(id,key,onPress){ const el=document.getElementById(id);
   const dn=e=>{e.preventDefault();keys[key]=true;if(onPress)onPress();};
