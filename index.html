@@ -1049,6 +1049,40 @@ function drawTitle(){
   X.fillStyle='#556'; X.font='7px "Courier New"'; X.fillText(isMobile?'方向鍵移動 / 跳 / 射擊 / 近戰 / 換武器':'←→移動  ↑跳  J射擊  K近戰  U/I換武器',VW/2,244);
   X.textAlign='left';
 }
+function drawMiniMarine(cx,ty,col,trim){ const d=shade(col,0.6), l=shade(col,1.4);
+  X.fillStyle=d; X.fillRect(cx-14,ty+10,7,11); X.fillRect(cx+7,ty+10,7,11); // shoulders
+  X.fillStyle=col; X.fillRect(cx-9,ty+10,18,17);                            // torso
+  X.fillStyle=l;   X.fillRect(cx-9,ty+10,18,3);
+  X.fillStyle=trim;X.fillRect(cx-2,ty+15,4,6);                              // emblem
+  X.fillStyle=col; X.fillRect(cx-6,ty,12,12);                              // helmet
+  X.fillStyle=l;   X.fillRect(cx-6,ty,12,3);
+  X.fillStyle='#8fd4ff'; X.fillRect(cx-4,ty+5,8,3);                        // visor
+}
+function wrapCJK(text,cx,y,maxw,lh){ let line='',yy=y;
+  for(const ch of text){ const t=line+ch; if(X.measureText(t).width>maxw && line){ X.fillText(line,cx,yy); line=ch; yy+=lh; } else line=t; }
+  if(line)X.fillText(line,cx,yy);
+}
+function drawSelect(){
+  X.fillStyle='#0a0a12'; X.fillRect(0,0,VW,VH);
+  X.textAlign='center';
+  X.fillStyle='#d4af37'; X.font='bold 16px "Courier New"'; X.fillText('選擇你的戰士',VW/2,26);
+  X.fillStyle='#889';    X.font='9px "Courier New"';       X.fillText('CHOOSE YOUR SPACE MARINE',VW/2,39);
+  for(let i=0;i<LEGIONS.length;i++){ const L=LEGIONS[i], x=19+i*90, y=44, w=82, h=150, sel=i===selLegion;
+    X.fillStyle=sel?'rgba(44,46,66,.96)':'rgba(20,22,32,.8)'; X.fillRect(x,y,w,h);
+    X.strokeStyle=sel?'#ffd24a':'#444'; X.lineWidth=sel?2:1; X.strokeRect(x+.5,y+.5,w-1,h-1);
+    drawMiniMarine(x+w/2, y+14, L.color, L.trim);
+    X.fillStyle=sel?'#fff':'#aab'; X.font='bold 11px "Courier New"'; X.fillText(L.name, x+w/2, y+70);
+    X.fillStyle='#778';            X.font='7px "Courier New"';       X.fillText(L.en,   x+w/2, y+80);
+    X.fillStyle=L.trim;            X.font='8px "Courier New"';       X.fillText(L.hero, x+w/2, y+95);
+    X.fillStyle=sel?'#cfe':'#8a9'; X.font='8px "Courier New"';       wrapCJK(L.perk, x+w/2, y+112, w-10, 11);
+  }
+  const bw=180, bx=VW/2-bw/2, by=216, bh=30, glow=Math.floor(titleT/24)%2===0;
+  X.fillStyle='rgba(180,40,40,.55)'; X.fillRect(bx,by,bw,bh);
+  X.strokeStyle=glow?'#ffbfae':'#ff9a8a'; X.lineWidth=1.5; X.strokeRect(bx+.5,by+.5,bw-1,bh-1);
+  X.fillStyle='#ffe'; X.font='bold 13px "Courier New"'; X.fillText('⚔ 確認出戰 ⚔', VW/2, by+20);
+  X.fillStyle='#778'; X.font='8px "Courier New"'; X.fillText(isMobile?'點卡片選擇 · 再點卡片或下方按鈕出戰':'← → 選擇   ENTER 出戰', VW/2, 258);
+  X.textAlign='left';
+}
 function drawGameOver(){
   X.fillStyle='rgba(0,0,0,0.85)'; X.fillRect(0,0,VW,VH); X.textAlign='center';
   X.fillStyle='#e23a3a'; X.font='bold 28px "Courier New"'; X.fillText('YOU DIED',VW/2,110);
