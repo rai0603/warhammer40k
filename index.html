@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="為了帝皇">
 <meta name="theme-color" content="#05060a">
-<meta name="build" content="2026.05.30.1">
+<meta name="build" content="2026.05.30.2">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; }
@@ -354,6 +354,23 @@ function setMusic(mode){
 function stopMusic(){ if(!audioReady)return; if(musicLoop)musicLoop.stop(); Tone.Transport.stop(); musicMode='none'; }
 function sfx(note,dur='16n'){ if(audioReady){ try{sfxSynth.triggerAttackRelease(note,dur);}catch(e){} } }
 function hurtSfx(){ if(audioReady){ try{ hurtSynth.triggerAttackRelease('G1','8n'); sfxSynth.triggerAttackRelease('A2','32n'); }catch(e){} } }
+// 死亡音效：~2 秒下行哀號 + 低音下沉 + 終結重擊延音（直接用 Tone.now()，不靠 Transport）
+function deathSfx(){ if(!audioReady)return; try{
+  const t=Tone.now();
+  // 下行主旋律（D 小調，逐音放慢）
+  leadSynth.triggerAttackRelease('A3',0.30,t+0.00);
+  leadSynth.triggerAttackRelease('G3',0.30,t+0.35);
+  leadSynth.triggerAttackRelease('F3',0.34,t+0.70);
+  leadSynth.triggerAttackRelease('D3',0.60,t+1.05);
+  // 低音同步下沉
+  bassSynth.triggerAttackRelease('A1',0.5,t+0.00);
+  bassSynth.triggerAttackRelease('F1',0.5,t+0.55);
+  bassSynth.triggerAttackRelease('D1',0.9,t+1.10);
+  // 終結：重擊 + D 小調延音收尾（~2 秒處）
+  kickSynth.triggerAttackRelease('C1','4n',t+1.55);
+  hurtSynth.triggerAttackRelease('A1','2n',t+1.55);
+  harmSynth.triggerAttackRelease(['D3','F3','A3'],0.9,t+1.60);
+}catch(_){}}
 
 //------------------------ WEAPONS ---------------------------
 const RANGED=[
@@ -577,7 +594,7 @@ function hurtPlayer(dmg){ if(player.inv>0||player.blessing>0)return;
   player.hp-=dmg; player.inv=50; hurtSfx();
   for(let i=0;i<8;i++)particles.push({x:player.x+13,y:player.y+22,vx:(Math.random()-.5)*5,vy:(Math.random()-.5)*5,life:14,c:'#f44'});
   if(player.hp<=0){ player.hp=0; gameOver(); } }
-function gameOver(){ state='GAMEOVER'; stopMusic(); recordScore(false); }
+function gameOver(){ state='GAMEOVER'; stopMusic(); deathSfx(); recordScore(false); }
 
 //------------------------ UPDATE ----------------------------
 function update(){
