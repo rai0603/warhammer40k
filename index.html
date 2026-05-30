@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="為了帝皇">
 <meta name="theme-color" content="#05060a">
-<meta name="build" content="2026.05.30.2">
+<meta name="build" content="2026.05.30.3">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; }
@@ -326,9 +326,9 @@ async function initAudio(){
   hurtSynth=new Tone.MembraneSynth({pitchDecay:0.08,octaves:3,oscillator:{type:'sine'},envelope:{attack:0.001,decay:0.25,sustain:0,release:0.1},volume:-2}).connect(master);
 
   stageTracks=STAGE_SONGS.map(buildTrack);
-  bossTrack=buildTrack(BOSS_SONG);
+  bossTrack=buildTrack(BOSS_SONG); menuTrack=buildMenuTrack();
   musicLoop=new Tone.Loop(time=>{
-    let track; if(musicMode==='boss')track=bossTrack; else if(musicMode==='stage')track=stageTracks[level]||stageTracks[0]; else return;
+    let track; if(musicMode==='boss')track=bossTrack; else if(musicMode==='stage')track=stageTracks[level]||stageTracks[0]; else if(musicMode==='menu')track=menuTrack; else return;
     if(!track)return;
     const st=track[mStep%track.length];
     try{
@@ -1209,6 +1209,7 @@ function loop(){
   const playing=(state==='PLAY'||state==='TRANS');
   pauseBtn.style.display=playing?'block':'none';
   if(isMobile)document.getElementById('touch').style.display=playing?'block':'none'; // 非遊戲狀態收起觸控盤
+  if(audioReady && (state==='TITLE'||state==='SELECT') && musicMode!=='menu') setMusic('menu'); // 開場/選角共用選單音樂
   if(state==='TITLE'){ drawTitle(); }
   else if(state==='SELECT'){ drawSelect(); }
   else { drawBackground(); drawPlatforms(); drawPools(); drawDrops(); enemies.forEach(drawEnemy); drawBoss(); drawBullets(); drawMarine(); drawParticles(); drawHUD();
