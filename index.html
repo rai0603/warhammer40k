@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="為了帝皇">
 <meta name="theme-color" content="#05060a">
-<meta name="build" content="2026.05.31.6">
+<meta name="build" content="2026.05.31.7">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; }
@@ -34,6 +34,7 @@
   #btn-melee  { right:40px;  bottom:104px; width:70px; height:70px; background:rgba(120,80,210,.34); border:1.5px solid rgba(200,160,255,.6); font-size:14px; }
   #btn-fire   { right:118px; bottom:56px;  width:70px; height:70px; background:rgba(210,60,50,.36); border:1.5px solid rgba(255,150,140,.6); font-size:14px; }
   #btn-jump   { right:48px;  bottom:28px;  width:58px; height:58px; background:rgba(50,190,110,.34); border:1.5px solid rgba(150,255,180,.6); font-size:14px; }
+  #btn-crouch { left:48px;   bottom:104px; width:60px; height:60px; font-size:18px; background:rgba(90,120,160,.34); border:1.5px solid rgba(180,210,240,.55); }
   /* weapon swap: small, upper area of right cluster */
   #btn-swR    { right:122px; bottom:140px; width:46px; height:46px; background:rgba(180,120,40,.32); border:1.5px solid rgba(255,200,130,.55); font-size:11px; }
   #btn-swM    { right:190px; bottom:104px; width:46px; height:46px; background:rgba(180,120,40,.32); border:1.5px solid rgba(255,200,130,.55); font-size:11px; }
@@ -65,6 +66,7 @@
 <div id="touch">
   <div class="pad" id="dpad-left">◀</div>
   <div class="pad" id="dpad-right">▶</div>
+  <div class="pad" id="btn-crouch">蹲</div>
   <div class="pad" id="btn-jump">跳</div>
   <div class="pad" id="btn-fire">射擊</div>
   <div class="pad" id="btn-melee">近戰</div>
@@ -186,8 +188,8 @@ fsBtn.addEventListener('click',e=>{ e.preventDefault(); e.stopPropagation(); tog
   document.addEventListener(ev,()=>{ fsBtn.textContent=isFs()?'⛶ 離開':'⛶ 全螢幕'; setTimeout(resize,250); }));
 
 //------------------------ INPUT -----------------------------
-const keys={left:false,right:false,jump:false,fire:false,melee:false,swR:false,swM:false};
-const kmap={ArrowLeft:'left',KeyA:'left',ArrowRight:'right',KeyD:'right',
+const keys={left:false,right:false,jump:false,fire:false,melee:false,swR:false,swM:false,down:false};
+const kmap={ArrowLeft:'left',KeyA:'left',ArrowRight:'right',KeyD:'right',ArrowDown:'down',KeyS:'down',
   ArrowUp:'jump',KeyW:'jump',Space:'jump',KeyJ:'fire',KeyK:'melee',KeyU:'swR',KeyI:'swM',Enter:'start',KeyP:'pause',Escape:'pause'};
 addEventListener('keydown',e=>{ const k=kmap[e.code]; if(k){ e.preventDefault();
   if(k==='start'){ if(state==='SELECT')confirmSelect(); else gotoSelect(); return;}
@@ -209,7 +211,7 @@ function bindBtn(id,key,onPress){ const el=document.getElementById(id);
   el.addEventListener('touchcancel',up,{passive:false});
   el.addEventListener('mousedown',dn); el.addEventListener('mouseup',up); el.addEventListener('mouseleave',up); }
 bindBtn('dpad-left','left'); bindBtn('dpad-right','right');
-bindBtn('btn-jump','jump'); bindBtn('btn-fire','fire'); bindBtn('btn-melee','melee');
+bindBtn('btn-jump','jump'); bindBtn('btn-fire','fire'); bindBtn('btn-melee','melee'); bindBtn('btn-crouch','down');
 bindBtn('btn-swR','swR',cycleRanged); bindBtn('btn-swM','swM',cycleMelee);
 CV.addEventListener('click',e=>{ if(state==='SELECT')selectClick(e); else if(state==='TITLE'||state==='GAMEOVER'||state==='VICTORY')gotoSelect(); });
 CV.addEventListener('touchstart',e=>{ if(state==='SELECT'){e.preventDefault();selectClick(e.touches[0]);} else if(state==='TITLE'||state==='GAMEOVER'||state==='VICTORY'){e.preventDefault();gotoSelect();} });
@@ -429,7 +431,7 @@ let atmParts=[];
 
 const player={x:60,y:GROUND-44,w:26,h:44,vx:0,vy:0,onGround:true,face:1,
   hp:100,maxhp:100,shield:0,rw:0,mw:0,rlvl:[1,1,1,1],mlvl:[1,1,1],
-  fireCD:0,meleeCD:0,meleeAnim:0,energy:0,inv:0,blessing:0,walk:0};
+  fireCD:0,meleeCD:0,meleeAnim:0,energy:0,inv:0,blessing:0,walk:0,landLag:0,crouch:false};
 let bullets=[],ebullets=[],enemies=[],drops=[],particles=[],platforms=[],pools=[];
 let boss=null,bossIntro=0,score=0;
 let bgStars=[],bgBuildings=[],bgFarFight=[],satellites=[];
@@ -624,12 +626,18 @@ function update(){
   if(player.blessing>0)player.blessing--; if(msgTime>0)msgTime--; if(stageBanner>0)stageBanner--; levelTimer++;
 
   const accel=0.62,maxv=2.7;
+  const wasGround=player.onGround;
+  if(player.landLag>0)player.landLag--;
+  // 蹲下：在地面按下 或 落地遲滯期間 → 原地不能移動
+  player.crouch=player.onGround&&(keys.down||player.landLag>0);
+  if(!player.crouch){
   if(keys.left){player.vx-=accel;player.face=-1;}
   if(keys.right){player.vx+=accel;player.face=1;}
+  }
   if(!keys.left&&!keys.right)player.vx*=0.7;
   player.vx=Math.max(-maxv,Math.min(maxv,player.vx));
   if(Math.abs(player.vx)>0.3&&player.onGround)player.walk+=0.3; else player.walk*=0.6;
-  if(keys.jump&&player.onGround){ player.vy=-7.4; player.onGround=false; sfx('C5','32n'); }
+  if(keys.jump&&player.onGround&&!player.crouch){ player.vy=-7.4; player.onGround=false; sfx('C5','32n'); }
   player.vy+=0.42; if(player.vy>9)player.vy=9;
   player.x+=player.vx; player.y+=player.vy;
   if(player.x<camX+2)player.x=camX+2; if(player.x>len-40)player.x=len-40;
@@ -639,6 +647,7 @@ function update(){
   platforms.forEach(p=>{ if(player.vy>=0&&player.x+player.w>p.x+3&&player.x<p.x+p.w-3){
       const prevBottom=player.y+player.h-player.vy;
       if(prevBottom<=p.y+6&&player.y+player.h>=p.y&&player.y+player.h<=p.y+20){ player.y=p.y-player.h; player.vy=0; player.onGround=true; } } });
+  if(!wasGround&&player.onGround){ player.landLag=12; } // 落地蹲 0.2s 遲滯
 
   ultimateUpdate(); if(!player.charging){ if(keys.fire)fireRanged(); if(keys.melee)doMelee(); }
 
@@ -900,6 +909,7 @@ function drawMarine(){
   const sx=p.x-camX, sy=p.y, f=p.face;
   const LG=LEGIONS[selLegion];
   const blue=LG.color, blueL=shade(LG.color,1.45), blueXL=shade(LG.color,1.85), blueD=shade(LG.color,0.62), blueDD=shade(LG.color,0.4), trim=LG.trim, trimD=shade(LG.trim,0.65), steel='#8d929c', steelD='#4a4e57', steelL='#c4c9d2', dark='#0c0d14', leather='#5a3f24';
+  X.save(); if(p.crouch){ const fy=sy+p.h; X.translate(0,fy); X.scale(1,0.66); X.translate(0,-fy); }
   const cx=sx+p.w/2; // body centre
   // ---- jump-pack ----
   const packX=f>0?sx+0:sx+p.w-10;
@@ -1006,6 +1016,7 @@ function drawMarine(){
   }
   if(p.shield>0){ X.strokeStyle='rgba(120,200,255,'+(0.3+0.3*Math.sin(Date.now()/100))+')'; X.lineWidth=2; X.beginPath(); X.arc(cx,sy+22,25,0,6.28); X.stroke(); }
   if(p.blessing>0){ X.strokeStyle='rgba(255,215,80,'+(0.4+0.4*Math.sin(Date.now()/60))+')'; X.lineWidth=2; X.beginPath(); X.arc(cx,sy+22,29,0,6.28); X.stroke(); }
+  X.restore();
 }
 
 function drawEnemy(e){
