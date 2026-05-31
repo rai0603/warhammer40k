@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="為了帝皇">
 <meta name="theme-color" content="#05060a">
-<meta name="build" content="2026.05.31.5">
+<meta name="build" content="2026.05.31.6">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; }
@@ -1090,7 +1090,7 @@ function drawPools(){
     X.fillStyle='rgba(180,255,100,'+(a*0.6)+')'; for(let i=0;i<4;i++){ const bx=sx-po.r+i*(po.r/2)+Math.sin(titleT/10+i)*3; X.fillRect(bx,po.y-3-Math.abs(Math.sin(titleT/8+i))*4,2,4); } });
 }
 function drawBoss(){
-  if(!boss)return; const b=boss; const tele=b.tele>0&&Math.floor(b.tele/3)%2===0; const flash=b.hitFlash>0||tele; const c=flash?'#fff':b.col, bx=b.x-camX, by=b.y;
+  if(!boss)return; const b=boss; const tele=b.tele>0&&Math.floor(b.tele/3)%2===0; const flash=b.hitFlash>0||tele; const wsh=(b.ultWind>0)?((b.ultWind%4<2)?2:-2):0; const c=flash?'#fff':b.col, bx=b.x-camX+wsh, by=b.y;
   // teleport fade (stalker)
   if(b.level===3&&b.tele>0){ X.globalAlpha=0.3; }
   X.fillStyle=c; X.fillRect(bx+10,by+14,b.w-20,b.h-20);
@@ -1354,7 +1354,7 @@ function updateBeams(){
   if(state==='PLAY' && boss && !boss.dead && bossIntro<=0){
     if(boss.ultCD===undefined)boss.ultCD=300+Math.floor(Math.random()*180);
     if(boss.ultWind>0){ if(--boss.ultWind<=0)bossFireUlt(); }
-    else if(--boss.ultCD<=0){ boss.ultWind=60; if(audioReady){ try{ hurtSynth.triggerAttackRelease('E2','4n'); }catch(_){ } } }
+    else if(--boss.ultCD<=0){ boss.ultWind=120; if(audioReady){ try{ hurtSynth.triggerAttackRelease('E2','4n'); }catch(_){ } } }
   }
 }
 function fireQuantumCannon(){
@@ -1379,9 +1379,9 @@ function drawWave(b, col, coreCol){
   const ox=b.x-camX, oy=b.y, r=b.r, pulse=1+Math.sin(b.t*0.5)*0.14, R=r*1.7*pulse;
   X.save();
   // 拖尾
-  const tail=r*3.2; const tg=X.createLinearGradient(ox,oy, ox-b.dir*tail, oy);
+  const tail=R*2.5; const tg=X.createLinearGradient(ox,oy, ox-b.dir*tail, oy);
   tg.addColorStop(0,col); tg.addColorStop(1,'rgba(0,0,0,0)');
-  X.globalAlpha=0.55; X.fillStyle=tg; X.fillRect(b.dir>0?ox-tail:ox, oy-r*0.55, tail, r*1.1); X.globalAlpha=1;
+  X.globalAlpha=0.55; X.fillStyle=tg; X.fillRect(b.dir>0?ox-tail:ox, oy-r*0.6, tail, r*1.2); X.globalAlpha=1;
   // 外層能量球
   const g=X.createRadialGradient(ox,oy,1,ox,oy,R);
   g.addColorStop(0,'#fff'); g.addColorStop(0.35,coreCol); g.addColorStop(0.72,col); g.addColorStop(1,'rgba(0,0,0,0)');
@@ -1408,7 +1408,7 @@ function drawBeams(){
   pbeams.forEach(b=>drawWave(b,'#7b3bff','#e6d2ff'));
   // 魔王蓄力晃動預警
   if(boss&&!boss.dead&&boss.ultWind>0){ const sh=(boss.ultWind%4<2)?2.5:-2.5, bx=boss.x-camX+boss.w/2+sh, by=boss.y+44;
-    const col=bossUltColor(), r=6+(60-boss.ultWind)/60*14;
+    const col=bossUltColor(), r=6+(120-boss.ultWind)/120*16;
     X.save(); X.globalAlpha=0.4+0.45*Math.sin(titleT*1.6);
     const g=X.createRadialGradient(bx,by,2,bx,by,r);
     g.addColorStop(0,'#fff'); g.addColorStop(0.5,col); g.addColorStop(1,'rgba(0,0,0,0)');
