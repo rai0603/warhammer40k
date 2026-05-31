@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="為了帝皇">
 <meta name="theme-color" content="#05060a">
-<meta name="build" content="2026.05.31.4">
+<meta name="build" content="2026.05.31.5">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; }
@@ -1339,11 +1339,19 @@ function ultimateUpdate(){
   }
 }
 function updateBeams(){
-  for(let i=pbeams.length-1;i>=0;i--){ if(--pbeams[i].life<=0)pbeams.splice(i,1); }
-  for(let i=bbeams.length-1;i>=0;i--){ if(--bbeams[i].life<=0)bbeams.splice(i,1); }
+  // 主角波動：前進、穿透傷害(每敵一次)
+  for(let i=pbeams.length-1;i>=0;i--){ const b=pbeams[i]; b.x+=b.vx; b.t++;
+    if(--b.life<=0||b.x<camX-80||b.x>camX+VW+80){ pbeams.splice(i,1); continue; }
+    enemies.forEach(e=>{ if(e.dead||b.hit.indexOf(e)>=0)return;
+      if(Math.abs((e.x+e.w/2)-b.x)<b.r+e.w/2 && Math.abs((e.y+e.h/2)-b.y)<b.r+e.h/2){ damageEnemy(e,b.dmg); b.hit.push(e); particle(e.x+e.w/2,e.y+e.h/2,'#b48bff',8); } });
+    if(boss&&!boss.dead&&b.hit.indexOf(boss)<0 && Math.abs((boss.x+boss.w/2)-b.x)<b.r+boss.w/2 && Math.abs((boss.y+boss.h/2)-b.y)<b.r+boss.h/2){ damageBoss(b.dmg); b.hit.push(boss); particle(b.x,b.y,'#fff',6); } }
+  // 魔王波動：前進、命中主角一次
+  for(let i=bbeams.length-1;i>=0;i--){ const b=bbeams[i]; b.x+=b.vx; b.t++;
+    if(--b.life<=0||b.x<camX-80||b.x>camX+VW+80){ bbeams.splice(i,1); continue; }
+    if(b.hit!==true && Math.abs((player.x+player.w/2)-b.x)<b.r+player.w/2 && Math.abs((player.y+player.h/2)-b.y)<b.r+player.h/2){ hurtPlayer(b.dmg); b.hit=true; } }
   if(screenShake>0)screenShake--;
-  // 魔王大絕招驅動 (蓄力晃動約1秒 → 發射)
-  if(state==='PLAY' && boss && !boss.dead && boss.intro<=0){
+  // 魔王大絕招驅動 (蓄力晃動約1秒 → 發射)；用全域 bossIntro(原本誤用 boss.intro 永遠不觸發)
+  if(state==='PLAY' && boss && !boss.dead && bossIntro<=0){
     if(boss.ultCD===undefined)boss.ultCD=300+Math.floor(Math.random()*180);
     if(boss.ultWind>0){ if(--boss.ultWind<=0)bossFireUlt(); }
     else if(--boss.ultCD<=0){ boss.ultWind=60; if(audioReady){ try{ hurtSynth.triggerAttackRelease('E2','4n'); }catch(_){ } } }
@@ -1351,28 +1359,37 @@ function updateBeams(){
 }
 function fireQuantumCannon(){
   const lvl=(player.rlvl&&player.rlvl[3])||1; const gd=(RANGED[3].dmg)+(lvl-1)*6;
-  const dmg=gd*5; // 槍榴彈傷害 5 倍
-  const oy=player.y+20, dir=player.face;
-  pbeams.push({x:player.x+player.w/2+dir*14, y:oy, dir:dir, life:24});
-  player.inv=Math.max(player.inv,18);
-  enemies.forEach(e=>{ if(e.dead)return; const ec=e.y+e.h/2;
-    if(Math.abs(ec-oy)<28 && (dir>0?e.x+e.w>player.x:e.x<player.x+player.w)){ damageEnemy(e,dmg); particle(e.x+e.w/2,e.y+e.h/2,'#b48bff',12); } });
-  if(boss&&!boss.dead){ const bc=boss.y+boss.h/2;
-    if(Math.abs(bc-oy)<64 && (dir>0?boss.x+boss.w>player.x:boss.x<player.x+player.w)) damageBoss(dmg); }
-  screenShake=12; flashMsg('★ 量子光砲 ★');
+  const dmg=gd*5; const dir=player.face;            // 槍榴彈傷害 5 倍
+  // 大型波動：寬度約主角身高一半(r≈11)，速度比普通子彈(6.5)慢一點點(5)
+  pbeams.push({x:player.x+player.w/2+dir*16, y:player.y+20, vx:dir*5.0, dir:dir, r:11, dmg:dmg, hit:[], life:170, t:0});
+  player.inv=Math.max(player.inv,18); screenShake=12; flashMsg('★ 量子光砲 ★');
   if(audioReady){ try{ sfxSynth.triggerAttackRelease('C6','2n'); hurtSynth.triggerAttackRelease('C2','2n'); harmSynth.triggerAttackRelease(['C4','G4','C5'],0.6); }catch(_){ } }
 }
 function bossUltColor(){ return ['#ff3b30','#ff8c1a','#19e6c0','#ffe14d','#ff2da6'][level]||'#ff3b30'; }
 function bossFireUlt(){
   if(!boss||boss.dead)return;
-  const base=22, dmg=base*5; // 透過 hurtPlayer ×2.5 → 為普攻命中的 5 倍
-  const dir=Math.sign(player.x-boss.x)||-1, oy=boss.y+40;
-  bbeams.push({x:boss.x+boss.w/2, y:oy, dir:dir, life:30, col:bossUltColor()});
+  const base=22, dmg=base*5;                          // 透過 hurtPlayer×倍率 → 普攻 5 倍
+  const dir=Math.sign(player.x-boss.x)||-1;
+  bbeams.push({x:boss.x+boss.w/2, y:boss.y+44, vx:dir*4.2, dir:dir, r:12, dmg:dmg, hit:false, col:bossUltColor(), life:220, t:0});
   boss.ultCD=420+Math.floor(Math.random()*240); screenShake=16;
-  const pc=player.y+player.h/2;
-  if(Math.abs(pc-oy)<42 && (dir>0?player.x+player.w>boss.x:player.x<boss.x+boss.w)) hurtPlayer(dmg);
   flashMsg('⚠ '+((boss.name||'魔王').split(' ')[0])+' 終極攻擊!');
   if(audioReady){ try{ hurtSynth.triggerAttackRelease('C1','2n'); sfxSynth.triggerAttackRelease('A2','4n'); }catch(_){ } }
+}
+function drawWave(b, col, coreCol){
+  const ox=b.x-camX, oy=b.y, r=b.r, pulse=1+Math.sin(b.t*0.5)*0.14, R=r*1.7*pulse;
+  X.save();
+  // 拖尾
+  const tail=r*3.2; const tg=X.createLinearGradient(ox,oy, ox-b.dir*tail, oy);
+  tg.addColorStop(0,col); tg.addColorStop(1,'rgba(0,0,0,0)');
+  X.globalAlpha=0.55; X.fillStyle=tg; X.fillRect(b.dir>0?ox-tail:ox, oy-r*0.55, tail, r*1.1); X.globalAlpha=1;
+  // 外層能量球
+  const g=X.createRadialGradient(ox,oy,1,ox,oy,R);
+  g.addColorStop(0,'#fff'); g.addColorStop(0.35,coreCol); g.addColorStop(0.72,col); g.addColorStop(1,'rgba(0,0,0,0)');
+  X.fillStyle=g; X.beginPath(); X.arc(ox,oy,R,0,6.28); X.fill();
+  // 亮核 + 火花環
+  X.fillStyle='#fff'; X.beginPath(); X.arc(ox,oy,r*0.5,0,6.28); X.fill();
+  X.strokeStyle=coreCol; X.globalAlpha=0.6; X.lineWidth=1.5; X.beginPath(); X.arc(ox,oy,R*0.85,0,6.28); X.stroke();
+  X.restore(); X.globalAlpha=1;
 }
 function drawBeams(){
   if(state!=='PLAY'&&state!=='TRANS')return;
@@ -1384,34 +1401,21 @@ function drawBeams(){
     X.save(); X.globalAlpha=0.5+0.3*Math.sin(titleT*0.6);
     const g=X.createRadialGradient(sx,sy,2,sx,sy,rad);
     g.addColorStop(0,'#e6d2ff'); g.addColorStop(0.5,'#9f6bff'); g.addColorStop(1,'rgba(120,60,255,0)');
-    X.fillStyle=g; X.beginPath(); X.arc(sx,sy,rad,0,6.28); X.fill(); X.restore();
+    X.fillStyle=g; X.beginPath(); X.arc(sx,sy,rad,0,6.28); X.fill(); X.restore(); X.globalAlpha=1;
     if(full && titleT%2===0) particle(p.x+p.w/2+(Math.random()-0.5)*22, p.y+12+(Math.random()-0.5)*22,'#c9a8ff',2);
   }
-  // 主角量子光砲 (紫)
-  pbeams.forEach(b=>{ const ox=b.x-camX, oy=b.y, len=VW, a=b.life/24;
-    X.save();
-    for(let l=0;l<3;l++){ const hh=(l===0?14:l===1?7:3);
-      X.globalAlpha=(l===0?0.25:l===1?0.5:0.95)*a; X.fillStyle=l===2?'#f0e6ff':'#9f6bff';
-      X.fillRect(b.dir>0?ox:ox-len, oy-hh/2, len, hh); }
-    X.globalAlpha=a; X.fillStyle='#fff'; X.beginPath(); X.arc(ox,oy,8*a+4,0,6.28); X.fill(); X.restore();
-  });
-  // 魔王蓄力晃動預警 + 光砲
-  if(boss&&!boss.dead){
-    if(boss.ultWind>0){ const sh=(boss.ultWind%4<2)?2.5:-2.5, bx=boss.x-camX+boss.w/2+sh, by=boss.y+40;
-      const col=bossUltColor(), r=6+(60-boss.ultWind)/60*13;
-      X.save(); X.globalAlpha=0.4+0.45*Math.sin(titleT*1.6);
-      const g=X.createRadialGradient(bx,by,2,bx,by,r);
-      g.addColorStop(0,'#fff'); g.addColorStop(0.5,col); g.addColorStop(1,'rgba(0,0,0,0)');
-      X.fillStyle=g; X.beginPath(); X.arc(bx,by,r,0,6.28); X.fill(); X.restore();
-    }
-    bbeams.forEach(b=>{ const ox=b.x-camX, oy=b.y, len=VW, a=b.life/30;
-      X.save();
-      for(let l=0;l<3;l++){ const hh=(l===0?16:l===1?8:3);
-        X.globalAlpha=(l===0?0.25:l===1?0.5:0.95)*a; X.fillStyle=l===2?'#fff':b.col;
-        X.fillRect(b.dir>0?ox:ox-len, oy-hh/2, len, hh); }
-      X.restore();
-    });
+  // 主角量子光砲波動
+  pbeams.forEach(b=>drawWave(b,'#7b3bff','#e6d2ff'));
+  // 魔王蓄力晃動預警
+  if(boss&&!boss.dead&&boss.ultWind>0){ const sh=(boss.ultWind%4<2)?2.5:-2.5, bx=boss.x-camX+boss.w/2+sh, by=boss.y+44;
+    const col=bossUltColor(), r=6+(60-boss.ultWind)/60*14;
+    X.save(); X.globalAlpha=0.4+0.45*Math.sin(titleT*1.6);
+    const g=X.createRadialGradient(bx,by,2,bx,by,r);
+    g.addColorStop(0,'#fff'); g.addColorStop(0.5,col); g.addColorStop(1,'rgba(0,0,0,0)');
+    X.fillStyle=g; X.beginPath(); X.arc(bx,by,r,0,6.28); X.fill(); X.restore(); X.globalAlpha=1;
   }
+  // 魔王波動
+  bbeams.forEach(b=>drawWave(b,b.col,'#fff'));
 }
 function drawChargeFX(){
   if(state!=='PLAY')return; const p=player; if(!p.chHold||p.chHold<1)return;
