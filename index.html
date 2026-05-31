@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="為了帝皇">
 <meta name="theme-color" content="#05060a">
-<meta name="build" content="2026.05.31.2">
+<meta name="build" content="2026.05.31.3">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; }
@@ -601,7 +601,7 @@ function pickupDrop(d){ switch(d.type){
     case 'blessing': player.blessing=300; player.inv=Math.max(player.inv,300); player.hp=Math.min(player.maxhp,player.hp+40); flashMsg('★ 帝皇恩賜 ★ 無敵+雙倍火力!'); sfx('C6','4n'); break;
   } score+=50; }
 function aabb(a,b){ return a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y; }
-function hurtPlayer(dmg){ if(player.inv>0||player.blessing>0)return;
+function hurtPlayer(dmg){ if(player.inv>0||player.blessing>0)return; dmg*=ENEMY_DMG_MULT;
   if(player.shield>0){ const a=Math.min(player.shield,dmg); player.shield-=a; dmg-=a; }
   player.hp-=dmg; player.inv=50; hurtSfx();
   for(let i=0;i<8;i++)particles.push({x:player.x+13,y:player.y+22,vx:(Math.random()-.5)*5,vy:(Math.random()-.5)*5,life:14,c:'#f44'});
@@ -640,7 +640,7 @@ function update(){
       const prevBottom=player.y+player.h-player.vy;
       if(prevBottom<=p.y+6&&player.y+player.h>=p.y&&player.y+player.h<=p.y+20){ player.y=p.y-player.h; player.vy=0; player.onGround=true; } } });
 
-  if(keys.fire)fireRanged(); if(keys.melee)doMelee();
+  ultimateUpdate(); if(!player.charging){ if(keys.fire)fireRanged(); if(keys.melee)doMelee(); }
 
   // side-scroller: camera only advances right, never scrolls back
   const desiredCam=Math.min(len-VW,player.x-VW*0.35);
@@ -1283,9 +1283,118 @@ function loop(){
   else { drawBackground(); drawPlatforms(); drawPools(); drawDrops(); enemies.forEach(drawEnemy); drawBoss(); drawBullets(); drawMarine(); drawParticles(); drawHUD();
     if(paused&&playing)drawPauseOverlay();
     if(state==='GAMEOVER')drawGameOver(); if(state==='VICTORY')drawVictory(); }
-  requestAnimationFrame(loop);
+  drawBeams(); drawChargeFX(); requestAnimationFrame(loop);
 }
 loop();
+
+// ===== ULTIMATE / 大招 系統 (量子光砲) + 2.5x 難度 =====
+let pbeams=[], bbeams=[], screenShake=0;
+const ENEMY_DMG_MULT=2.5; // 敵人 & 魔王普攻傷害倍率
+
+function ultimateUpdate(){
+  updateBeams();
+  const both = keys.fire && keys.melee;
+  if(both){
+    player.chHold=(player.chHold||0)+1;
+    if(player.chHold>=60){ player.charging=true;
+      if(audioReady && player.chHold%5===0){ try{ sfxSynth.triggerAttackRelease(player.chHold>=180?'E6':'C5','32n'); }catch(_){ } } }
+  } else {
+    if(player.charging && player.chHold>=180) fireQuantumCannon();
+    player.charging=false; player.chHold=0;
+  }
+}
+function updateBeams(){
+  for(let i=pbeams.length-1;i>=0;i--){ if(--pbeams[i].life<=0)pbeams.splice(i,1); }
+  for(let i=bbeams.length-1;i>=0;i--){ if(--bbeams[i].life<=0)bbeams.splice(i,1); }
+  if(screenShake>0)screenShake--;
+  // 魔王大絕招驅動 (蓄力晃動約1秒 → 發射)
+  if(state==='PLAY' && boss && !boss.dead && boss.intro<=0){
+    if(boss.ultCD===undefined)boss.ultCD=300+Math.floor(Math.random()*180);
+    if(boss.ultWind>0){ if(--boss.ultWind<=0)bossFireUlt(); }
+    else if(--boss.ultCD<=0){ boss.ultWind=60; if(audioReady){ try{ hurtSynth.triggerAttackRelease('E2','4n'); }catch(_){ } } }
+  }
+}
+function fireQuantumCannon(){
+  const lvl=(player.rlvl&&player.rlvl[3])||1; const gd=(RANGED[3].dmg)+(lvl-1)*6;
+  const dmg=gd*5; // 槍榴彈傷害 5 倍
+  const oy=player.y+20, dir=player.face;
+  pbeams.push({x:player.x+player.w/2+dir*14, y:oy, dir:dir, life:24});
+  player.inv=Math.max(player.inv,18);
+  enemies.forEach(e=>{ if(e.dead)return; const ec=e.y+e.h/2;
+    if(Math.abs(ec-oy)<28 && (dir>0?e.x+e.w>player.x:e.x<player.x+player.w)){ damageEnemy(e,dmg); particle(e.x+e.w/2,e.y+e.h/2,'#b48bff',12); } });
+  if(boss&&!boss.dead){ const bc=boss.y+boss.h/2;
+    if(Math.abs(bc-oy)<64 && (dir>0?boss.x+boss.w>player.x:boss.x<player.x+player.w)) damageBoss(dmg); }
+  screenShake=12; flashMsg('★ 量子光砲 ★');
+  if(audioReady){ try{ sfxSynth.triggerAttackRelease('C6','2n'); hurtSynth.triggerAttackRelease('C2','2n'); harmSynth.triggerAttackRelease(['C4','G4','C5'],0.6); }catch(_){ } }
+}
+function bossUltColor(){ return ['#ff3b30','#ff8c1a','#19e6c0','#ffe14d','#ff2da6'][level]||'#ff3b30'; }
+function bossFireUlt(){
+  if(!boss||boss.dead)return;
+  const base=22, dmg=base*5; // 透過 hurtPlayer ×2.5 → 為普攻命中的 5 倍
+  const dir=Math.sign(player.x-boss.x)||-1, oy=boss.y+40;
+  bbeams.push({x:boss.x+boss.w/2, y:oy, dir:dir, life:30, col:bossUltColor()});
+  boss.ultCD=420+Math.floor(Math.random()*240); screenShake=16;
+  const pc=player.y+player.h/2;
+  if(Math.abs(pc-oy)<42 && (dir>0?player.x+player.w>boss.x:player.x<boss.x+boss.w)) hurtPlayer(dmg);
+  flashMsg('⚠ '+((boss.name||'魔王').split(' ')[0])+' 終極攻擊!');
+  if(audioReady){ try{ hurtSynth.triggerAttackRelease('C1','2n'); sfxSynth.triggerAttackRelease('A2','4n'); }catch(_){ } }
+}
+function drawBeams(){
+  if(state!=='PLAY'&&state!=='TRANS')return;
+  const p=player;
+  // 主角集氣光環
+  if(p.chHold>0 && p.charging){
+    const sx=p.x-camX+p.w/2, sy=p.y+22, frac=Math.max(0,Math.min(1,(p.chHold-60)/120)), full=p.chHold>=180;
+    const rad=8+frac*10+(full?Math.sin(titleT*1.2)*3:0);
+    X.save(); X.globalAlpha=0.5+0.3*Math.sin(titleT*0.6);
+    const g=X.createRadialGradient(sx,sy,2,sx,sy,rad);
+    g.addColorStop(0,'#e6d2ff'); g.addColorStop(0.5,'#9f6bff'); g.addColorStop(1,'rgba(120,60,255,0)');
+    X.fillStyle=g; X.beginPath(); X.arc(sx,sy,rad,0,6.28); X.fill(); X.restore();
+    if(full && titleT%2===0) particle(p.x+p.w/2+(Math.random()-0.5)*22, p.y+12+(Math.random()-0.5)*22,'#c9a8ff',2);
+  }
+  // 主角量子光砲 (紫)
+  pbeams.forEach(b=>{ const ox=b.x-camX, oy=b.y, len=VW, a=b.life/24;
+    X.save();
+    for(let l=0;l<3;l++){ const hh=(l===0?14:l===1?7:3);
+      X.globalAlpha=(l===0?0.25:l===1?0.5:0.95)*a; X.fillStyle=l===2?'#f0e6ff':'#9f6bff';
+      X.fillRect(b.dir>0?ox:ox-len, oy-hh/2, len, hh); }
+    X.globalAlpha=a; X.fillStyle='#fff'; X.beginPath(); X.arc(ox,oy,8*a+4,0,6.28); X.fill(); X.restore();
+  });
+  // 魔王蓄力晃動預警 + 光砲
+  if(boss&&!boss.dead){
+    if(boss.ultWind>0){ const sh=(boss.ultWind%4<2)?2.5:-2.5, bx=boss.x-camX+boss.w/2+sh, by=boss.y+40;
+      const col=bossUltColor(), r=6+(60-boss.ultWind)/60*13;
+      X.save(); X.globalAlpha=0.4+0.45*Math.sin(titleT*1.6);
+      const g=X.createRadialGradient(bx,by,2,bx,by,r);
+      g.addColorStop(0,'#fff'); g.addColorStop(0.5,col); g.addColorStop(1,'rgba(0,0,0,0)');
+      X.fillStyle=g; X.beginPath(); X.arc(bx,by,r,0,6.28); X.fill(); X.restore();
+    }
+    bbeams.forEach(b=>{ const ox=b.x-camX, oy=b.y, len=VW, a=b.life/30;
+      X.save();
+      for(let l=0;l<3;l++){ const hh=(l===0?16:l===1?8:3);
+        X.globalAlpha=(l===0?0.25:l===1?0.5:0.95)*a; X.fillStyle=l===2?'#fff':b.col;
+        X.fillRect(b.dir>0?ox:ox-len, oy-hh/2, len, hh); }
+      X.restore();
+    });
+  }
+}
+function drawChargeFX(){
+  if(state!=='PLAY')return; const p=player; if(!p.chHold||p.chHold<1)return;
+  const frac=Math.max(0,Math.min(1,(p.chHold-60)/120)), full=p.chHold>=180;
+  const bw=98,bh=12; let bx=VW-108, by=24, ox=0, oy=0;
+  if(full){ ox=(Math.random()-0.5)*4; oy=(Math.random()-0.5)*4; } // 完成時整體晃動
+  X.save(); X.textAlign='right';
+  if(full){ X.globalAlpha=0.35+0.4*Math.sin(titleT*0.8); X.fillStyle='#c9a8ff'; X.fillRect(bx-4+ox,by-4+oy,bw+8,bh+8); X.globalAlpha=1; } // 周圍閃爍發光
+  X.fillStyle='rgba(10,8,20,0.82)'; X.fillRect(bx+ox,by+oy,bw,bh);
+  if(p.chHold<60){ X.fillStyle='#555'; X.fillRect(bx+ox+1,by+oy+1,(bw-2)*(p.chHold/60),bh-2); }
+  else { const grd=X.createLinearGradient(bx,0,bx+bw,0); grd.addColorStop(0,'#6b2bff'); grd.addColorStop(1,full?'#fff':'#c9a8ff');
+    X.fillStyle=grd; X.fillRect(bx+ox+1,by+oy+1,(bw-2)*frac,bh-2); }
+  X.strokeStyle=full?'#fff':'#9f6bff'; X.lineWidth=1; X.strokeRect(bx+ox+0.5,by+oy+0.5,bw,bh);
+  X.fillStyle=full?'#fff':'#b9a3e8'; X.font='bold 8px "Courier New"';
+  X.fillText(full?'★ 量子光砲 READY ★':'集氣中…', bx+bw+ox, by+oy-3);
+  X.textAlign='left'; X.restore();
+}
+
 </script>
 </body>
 </html>
