@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="為了帝皇">
 <meta name="theme-color" content="#05060a">
-<meta name="build" content="2026.05.30.4">
+<meta name="build" content="2026.05.31.1">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; }
@@ -146,7 +146,7 @@
 //  WARHAMMER 40K — 為了帝皇  (original pixel tribute)
 //============================================================
 const CV=document.getElementById('c'), X=CV.getContext('2d');
-const VW=480,VH=270; CV.width=VW; CV.height=VH;
+const VW=480,VH=270; const SCALE=2; CV.width=VW*SCALE; CV.height=VH*SCALE; /* 2× 內部解析度；遊戲座標仍用 VW×VH */
 let scale=1;
 function resize(){ const r=Math.min(window.innerWidth/VW,window.innerHeight/VH);
   scale=r; CV.style.width=(VW*r)+'px'; CV.style.height=(VH*r)+'px'; }
@@ -1217,7 +1217,7 @@ function drawPauseOverlay(){
   X.fillStyle='#9ab'; X.font='9px "Courier New"'; X.fillText(isMobile?'點擊 ▶ 繼續':'按 P 或 ESC 繼續',VW/2,VH/2+26); X.textAlign='left';
 }
 function loop(){
-  update(); X.clearRect(0,0,VW,VH);
+  update(); X.setTransform(SCALE,0,0,SCALE,0,0); X.clearRect(0,0,VW,VH);
   const playing=(state==='PLAY'||state==='TRANS');
   pauseBtn.style.display=playing?'block':'none';
   if(isMobile)document.getElementById('touch').style.display=playing?'block':'none'; // 非遊戲狀態收起觸控盤
