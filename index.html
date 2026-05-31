@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="為了帝皇">
 <meta name="theme-color" content="#05060a">
-<meta name="build" content="2026.05.31.1">
+<meta name="build" content="2026.05.31.2">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; }
@@ -899,45 +899,101 @@ function drawMarine(){
   const p=player; if(p.inv>0&&p.blessing<=0&&Math.floor(p.inv/4)%2===0)return;
   const sx=p.x-camX, sy=p.y, f=p.face;
   const LG=LEGIONS[selLegion];
-  const blue=LG.color,blueL=shade(LG.color,1.45),blueD=shade(LG.color,0.5),trim=LG.trim,steel='#888';
-  // power pack
-  const packX=f>0?sx+1:sx+p.w-9;
-  X.fillStyle=blueD; X.fillRect(packX,sy+10,8,16); X.fillStyle=steel; X.fillRect(packX+1,sy+9,6,3); X.fillStyle='#5af'; X.fillRect(packX+2,sy+11,2,3);
-  // legs — run cycle / jump pose / idle stand
+  const blue=LG.color, blueL=shade(LG.color,1.45), blueXL=shade(LG.color,1.85), blueD=shade(LG.color,0.62), blueDD=shade(LG.color,0.4), trim=LG.trim, trimD=shade(LG.trim,0.65), steel='#8d929c', steelD='#4a4e57', steelL='#c4c9d2', dark='#0c0d14', leather='#5a3f24';
+  const cx=sx+p.w/2; // body centre
+  // ---- jump-pack ----
+  const packX=f>0?sx+0:sx+p.w-10;
+  X.fillStyle=blueDD; X.fillRect(packX,sy+9,10,17);
+  X.fillStyle=steelD; X.fillRect(packX+1,sy+8,8,3);
+  X.fillStyle=steel;  X.fillRect(packX+(f>0?7:1),sy+10,2,14); // exhaust spine
+  for(let v=0;v<3;v++){ X.fillStyle='#5ad6ff'; X.fillRect(packX+(f>0?7:1),sy+11+v*4,2,2); } // thruster glow
+  X.fillStyle=blueD; X.fillRect(packX+(f>0?1:3),sy+11,6,12); X.fillStyle=blueDD; X.fillRect(packX+(f>0?1:3),sy+17,6,2);
+  // ---- legs (run / jump / idle) ----
   const running=Math.abs(p.vx)>0.3&&p.onGround;
   const ph=Math.sin(p.walk*2), ph2=Math.sin(p.walk*2+Math.PI);
   let fX,bX,fLift,bLift;
-  if(!p.onGround){ fX=f*4; bX=-f*3; fLift=5; bLift=2; }            // jump: legs tucked
-  else if(running){ fX=ph*5*f; bX=ph2*5*f; fLift=ph>0?ph*5:0; bLift=ph2>0?ph2*5:0; } // run stride
-  else { fX=0; bX=0; fLift=0; bLift=0; }                            // idle
-  // back leg
-  X.fillStyle=blueD; X.fillRect(sx+5+bX,sy+30,7,12-bLift);
-  X.fillStyle=blue;  X.fillRect(sx+5+bX,sy+32,7,4);
-  X.fillStyle='#111';X.fillRect(sx+3+bX,sy+42-bLift,10,4);
-  // front leg
-  X.fillStyle=blueD; X.fillRect(sx+14+fX,sy+30,7,12-fLift);
-  X.fillStyle=blue;  X.fillRect(sx+14+fX,sy+32,7,4);
-  X.fillStyle='#111';X.fillRect(sx+13+fX,sy+42-fLift,10,4);
-  // torso
-  X.fillStyle=blue; X.fillRect(sx+3,sy+12,20,19); X.fillStyle=blueL; X.fillRect(sx+3,sy+12,20,4); X.fillStyle=blueD; X.fillRect(sx+3,sy+28,20,3);
-  X.fillStyle=trim; X.fillRect(sx+9,sy+15,8,2); X.fillRect(sx+12,sy+15,2,9); X.fillRect(sx+10,sy+22,6,2);
-  X.fillStyle=steel; X.fillRect(sx+8,sy+27,10,3);
-  // shoulder pads
-  X.fillStyle=blue; X.fillRect(sx-2,sy+11,9,10); X.fillStyle=blueL; X.fillRect(sx-2,sy+11,9,3); X.fillStyle=blueD; X.fillRect(sx-2,sy+19,9,2);
-  X.fillStyle=blue; X.fillRect(sx+19,sy+11,9,10); X.fillStyle=blueL; X.fillRect(sx+19,sy+11,9,3); X.fillStyle=blueD; X.fillRect(sx+19,sy+19,9,2);
-  X.fillStyle=trim; X.fillRect(sx-2,sy+11,9,1); X.fillRect(sx+19,sy+11,9,1);
-  // helmet
-  X.fillStyle=blue; X.fillRect(sx+7,sy,13,14); X.fillStyle=blueL; X.fillRect(sx+7,sy,13,3);
-  X.fillStyle=steel; X.fillRect(f>0?sx+15:sx+7,sy+6,5,6);
-  X.fillStyle='#7fe0ff'; if(f>0)X.fillRect(sx+9,sy+5,5,3); else X.fillRect(sx+13,sy+5,5,3);
-  X.fillStyle=trim; X.fillRect(sx+12,sy-3,3,5);
-  // weapon arm + gun
-  X.fillStyle=blue; if(f>0)X.fillRect(sx+20,sy+15,7,6); else X.fillRect(sx-1,sy+15,7,6);
-  drawGun(sx+p.w/2,sy+17,f,p.rw);
-  // melee swing
+  if(!p.onGround){ fX=f*4; bX=-f*3; fLift=5; bLift=2; }
+  else if(running){ fX=ph*5*f; bX=ph2*5*f; fLift=ph>0?ph*5:0; bLift=ph2>0?ph2*5:0; }
+  else { fX=0; bX=0; fLift=0; bLift=0; }
+  function leg(lx,lift,backLeg){
+    const c=backLeg?blueD:blue, cd=backLeg?blueDD:blueD, cl=backLeg?blue:blueL;
+    X.fillStyle=cd; X.fillRect(lx,sy+30,8,12-lift);            // thigh+shin plate
+    X.fillStyle=c;  X.fillRect(lx+1,sy+31,6,3);                // thigh highlight band
+    X.fillStyle=cl; X.fillRect(lx+1,sy+30,5,1.5);
+    X.fillStyle=trimD; X.fillRect(lx,sy+35-lift*0.4,8,1.5);     // knee trim
+    X.fillStyle=steel; X.fillRect(lx+1,sy+33-lift*0.4,6,3);    // knee guard
+    X.fillStyle=steelL;X.fillRect(lx+2,sy+33-lift*0.4,2,1.5);
+    X.fillStyle=dark;  X.fillRect(lx-1,sy+42-lift,11,4);        // boot
+    X.fillStyle=steelD;X.fillRect(lx-1,sy+42-lift,11,1.5);     // boot toe cap
+  }
+  leg(sx+5+bX, bLift, true);   // back
+  leg(sx+14+fX, fLift, false); // front
+  // ---- torso / chest plate ----
+  X.fillStyle=blueD; X.fillRect(sx+2,sy+12,22,20);             // base
+  X.fillStyle=blue;  X.fillRect(sx+3,sy+12,20,18);
+  X.fillStyle=blueL; X.fillRect(sx+3,sy+12,20,3);              // top sheen
+  X.fillStyle=blueXL;X.fillRect(sx+4,sy+12,8,1.5);
+  X.fillStyle=blueDD;X.fillRect(sx+3,sy+29,20,3);              // lower shadow
+  // central spine + aquila hint
+  X.fillStyle=trimD; X.fillRect(cx-1,sy+14,2,15);
+  X.fillStyle=trim;  X.fillRect(cx-3,sy+15,6,2); X.fillRect(cx-2,sy+14,4,1.5); // collar eagle wings
+  X.fillStyle=trim;  X.fillRect(cx-1,sy+16,2,5);              // body
+  // abdominal segments
+  X.fillStyle=steelD; X.fillRect(sx+7,sy+24,12,5);
+  X.fillStyle=steel;  X.fillRect(sx+7,sy+24,12,1.5); X.fillRect(sx+7,sy+26.5,12,1.5);
+  X.fillStyle=steelD; X.fillRect(sx+10,sy+24,1.5,5); X.fillRect(sx+14,sy+24,1.5,5);
+  // belt + buckle
+  X.fillStyle=dark;  X.fillRect(sx+3,sy+29,20,2.5);
+  X.fillStyle=trim;  X.fillRect(cx-2,sy+29,4,2.5); X.fillStyle=trimD; X.fillRect(cx-1,sy+30,2,1.5);
+  // purity seal (parchment) hanging at hip — adds asymmetry/variation
+  const sealX=f>0?sx+5:sx+18;
+  X.fillStyle='#e8ddc0'; X.fillRect(sealX,sy+30,3,6); X.fillStyle='#c9bb95'; X.fillRect(sealX,sy+34,3,2);
+  X.fillStyle='#b23a2e'; X.fillRect(sealX,sy+29,3,1.5);      // wax seal top
+  // ---- shoulder pads (rounded, rimmed, legion stud, one battle-worn) ----
+  function pauldron(px,worn){
+    X.fillStyle=blueD; X.fillRect(px,sy+10,10,11);
+    X.fillStyle=blue;  X.fillRect(px+1,sy+11,9,9);
+    X.fillStyle=blueL; X.fillRect(px+1,sy+10,9,2.5);          // top curve sheen
+    X.fillStyle=blueXL;X.fillRect(px+2,sy+10,4,1.5);
+    X.fillStyle=trim;  X.fillRect(px,sy+10,10,1.5);           // rim trim top
+    X.fillStyle=trimD; X.fillRect(px,sy+19,10,2);             // rim trim bottom
+    X.fillStyle=trim;  X.fillRect(px+3.5,sy+13,3,4);          // legion icon
+    X.fillStyle=blueD; X.fillRect(px+4.5,sy+14,1,2);
+    X.fillStyle=steel; X.fillRect(px+1,sy+11,1.5,1.5); X.fillRect(px+7.5,sy+11,1.5,1.5); // rivets
+    if(worn){ X.fillStyle=steelD; X.fillRect(px+6,sy+15,3,1); X.fillRect(px+7,sy+13,1,3); } // scratch
+  }
+  pauldron(sx-3, f<0);  // left
+  pauldron(sx+19, f>0); // right (worn side follows facing for variation)
+  // ---- arms / vambrace (weapon side) ----
+  const armX=f>0?sx+20:sx-2;
+  X.fillStyle=blueD; X.fillRect(armX,sy+15,8,7);
+  X.fillStyle=blue;  X.fillRect(armX+1,sy+15,6,5);
+  X.fillStyle=steelD;X.fillRect(armX+(f>0?5:0),sy+18,3,4);    // vambrace
+  X.fillStyle=trim;  X.fillRect(armX+(f>0?5:0),sy+18,3,1);
+  // ---- helmet (Mk-style: brow, visor glow, breathing grille, crest) ----
+  X.fillStyle=blueD; X.fillRect(sx+6,sy,15,15);               // skull base
+  X.fillStyle=blue;  X.fillRect(sx+7,sy,13,13);
+  X.fillStyle=blueL; X.fillRect(sx+7,sy,13,3);                // crown sheen
+  X.fillStyle=blueXL;X.fillRect(sx+8,sy,6,1.5);
+  X.fillStyle=blueDD;X.fillRect(sx+7,sy+11,13,2);             // jaw shadow
+  X.fillStyle=dark;  X.fillRect(sx+7,sy+5,13,2);              // brow ridge slot
+  // visor (faces forward, glowing)
+  if(f>0){ X.fillStyle='#7fe0ff'; X.fillRect(sx+14,sy+5,5,3); X.fillStyle='#cdf6ff'; X.fillRect(sx+17,sy+5,2,1.5); }
+  else   { X.fillStyle='#7fe0ff'; X.fillRect(sx+8,sy+5,5,3);  X.fillStyle='#cdf6ff'; X.fillRect(sx+8,sy+5,2,1.5); }
+  // breathing grille (snout)
+  X.fillStyle=steel; X.fillRect(f>0?sx+15:sx+7,sy+8,5,4);
+  X.fillStyle=steelD;for(let g=0;g<3;g++)X.fillRect((f>0?sx+15:sx+7),sy+8.5+g*1.2,5,0.8);
+  X.fillStyle=steelL;X.fillRect(f>0?sx+15:sx+7,sy+8,5,1);
+  // comm-stud / ear pad on back side
+  X.fillStyle=steelD;X.fillRect(f>0?sx+6:sx+18,sy+6,2,4);
+  // crest stud on crown
+  X.fillStyle=trim;  X.fillRect(sx+12,sy-3,3,4); X.fillStyle=trimD; X.fillRect(sx+12,sy-1,3,2);
+  // ---- weapon ----
+  drawGun(cx,sy+17,f,p.rw);
+  // ---- melee swing ----
   if(p.meleeAnim>0){
     const w=MELEE[p.mw]; const prog=1-(p.meleeAnim/MELEE_DUR);
-    X.save(); X.translate(sx+p.w/2,sy+17); if(f<0)X.scale(-1,1); X.rotate(-1.2+prog*2.4);
+    X.save(); X.translate(cx,sy+17); if(f<0)X.scale(-1,1); X.rotate(-1.2+prog*2.4);
     X.globalAlpha=0.92; X.fillStyle=w.color; X.fillRect(0,-3,w.reach,6); X.fillStyle='#fff'; X.fillRect(0,-2,w.reach,2);
     if(p.mw===1){ X.fillStyle=steel; X.fillRect(w.reach-12,-11,14,22); X.fillStyle=w.color; X.fillRect(w.reach-11,-10,12,20); }
     else if(p.mw===2){ X.fillStyle=w.color; X.fillRect(w.reach-6,-9,14,18); X.fillStyle='#fff'; X.fillRect(w.reach-4,-7,10,4); }
@@ -945,11 +1001,11 @@ function drawMarine(){
     X.globalAlpha=1; X.restore();
     X.strokeStyle='rgba(255,255,255,'+(0.5*(1-prog))+')'; X.lineWidth=2; X.beginPath();
     const a0=(-1.2+prog*2.4-0.4), a1=(-1.2+prog*2.4);
-    if(f>0)X.arc(sx+p.w/2,sy+17,w.reach,a0,a1); else X.arc(sx+p.w/2,sy+17,w.reach,Math.PI-a1,Math.PI-a0);
+    if(f>0)X.arc(cx,sy+17,w.reach,a0,a1); else X.arc(cx,sy+17,w.reach,Math.PI-a1,Math.PI-a0);
     X.stroke();
   }
-  if(p.shield>0){ X.strokeStyle='rgba(120,200,255,'+(0.3+0.3*Math.sin(Date.now()/100))+')'; X.lineWidth=2; X.beginPath(); X.arc(sx+p.w/2,sy+22,25,0,6.28); X.stroke(); }
-  if(p.blessing>0){ X.strokeStyle='rgba(255,215,80,'+(0.4+0.4*Math.sin(Date.now()/60))+')'; X.lineWidth=2; X.beginPath(); X.arc(sx+p.w/2,sy+22,29,0,6.28); X.stroke(); }
+  if(p.shield>0){ X.strokeStyle='rgba(120,200,255,'+(0.3+0.3*Math.sin(Date.now()/100))+')'; X.lineWidth=2; X.beginPath(); X.arc(cx,sy+22,25,0,6.28); X.stroke(); }
+  if(p.blessing>0){ X.strokeStyle='rgba(255,215,80,'+(0.4+0.4*Math.sin(Date.now()/60))+')'; X.lineWidth=2; X.beginPath(); X.arc(cx,sy+22,29,0,6.28); X.stroke(); }
 }
 
 function drawEnemy(e){
