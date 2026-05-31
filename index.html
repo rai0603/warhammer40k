@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="為了帝皇">
 <meta name="theme-color" content="#05060a">
-<meta name="build" content="2026.05.31.8">
+<meta name="build" content="2026.05.31.9">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; }
@@ -909,7 +909,7 @@ function drawMarine(){
   const sx=p.x-camX, sy=p.y, f=p.face;
   const LG=LEGIONS[selLegion];
   const blue=LG.color, blueL=shade(LG.color,1.45), blueXL=shade(LG.color,1.85), blueD=shade(LG.color,0.62), blueDD=shade(LG.color,0.4), trim=LG.trim, trimD=shade(LG.trim,0.65), steel='#8d929c', steelD='#4a4e57', steelL='#c4c9d2', dark='#0c0d14', leather='#5a3f24';
-  const crD = p.crouch ? 8 : 0; // 蹲下：髖部與上半身下沉，雙腳踏地不動
+  const crD = p.crouch ? 12 : 0; // 蹲下：上半身保持原形下沉，雙腿彎曲折疊（深蹲）
   const cx=sx+p.w/2; // body centre
   // ---- jump-pack ----
   X.save(); X.translate(0,crD);
@@ -929,13 +929,14 @@ function drawMarine(){
   else { fX=0; bX=0; fLift=0; bLift=0; }
   function leg(lx,lift,backLeg){
     const c=backLeg?blueD:blue, cd=backLeg?blueDD:blueD, cl=backLeg?blue:blueL;
-    if(crD>0){ const hipY=sy+30+crD, bootY=sy+42, sp=backLeg?-3:3; // 蹲姿：膝彎外張、腳踏地
-      X.fillStyle=cd; X.fillRect(lx,hipY,8,Math.max(2,bootY-hipY));        // 大腿(隨髖下沉)
-      X.fillStyle=c;  X.fillRect(lx+1,hipY,6,2);
-      X.fillStyle=trimD; X.fillRect(lx+sp,hipY+1,8,1.5);                    // 膝甲外張
-      X.fillStyle=steel; X.fillRect(lx+1+sp,hipY,6,3); X.fillStyle=steelL; X.fillRect(lx+2+sp,hipY,2,1.5);
-      X.fillStyle=cd; X.fillRect(lx+sp,hipY+2,7,bootY-(hipY+2));            // 小腿外張至腳
-      X.fillStyle=dark; X.fillRect(lx-2+sp,bootY,12,4); X.fillStyle=steelD; X.fillRect(lx-2+sp,bootY,12,1.5); // 加寬踏地靴
+    if(crD>0){ // 深蹲：膝蓋彎曲、向外張，腳掌踏地不動（上半身由 crD 下沉，不變形）
+      const hipY=sy+30+crD, footY=sy+45, kneeY=(hipY+footY)/2, kx=lx+(backLeg?-4:4);
+      X.fillStyle=cd; X.fillRect(Math.min(lx,kx),hipY,11,Math.max(2,kneeY-hipY+2)); // 大腿(髖→膝, 斜向外)
+      X.fillStyle=c;  X.fillRect(Math.min(lx,kx)+1,hipY,6,2);
+      X.fillStyle=steel; X.fillRect(kx,kneeY-2,7,3); X.fillStyle=steelL; X.fillRect(kx+1,kneeY-2,2,1.5); // 膝甲(外突)
+      X.fillStyle=trimD; X.fillRect(kx,kneeY+1,7,1.5);
+      X.fillStyle=cd; X.fillRect(kx+(backLeg?1:1),kneeY,7,footY-kneeY); // 小腿(膝→腳)
+      X.fillStyle=dark;  X.fillRect(kx-2,footY,12,4); X.fillStyle=steelD; X.fillRect(kx-2,footY,12,1.5); // 靴(踏地)
       return; }
     X.fillStyle=cd; X.fillRect(lx,sy+30,8,12-lift);            // thigh+shin plate
     X.fillStyle=c;  X.fillRect(lx+1,sy+31,6,3);                // thigh highlight band
