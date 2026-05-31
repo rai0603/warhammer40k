@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="為了帝皇">
 <meta name="theme-color" content="#05060a">
-<meta name="build" content="2026.05.31.3">
+<meta name="build" content="2026.05.31.4">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; }
@@ -38,15 +38,15 @@
   #btn-swR    { right:122px; bottom:140px; width:46px; height:46px; background:rgba(180,120,40,.32); border:1.5px solid rgba(255,200,130,.55); font-size:11px; }
   #btn-swM    { right:190px; bottom:104px; width:46px; height:46px; background:rgba(180,120,40,.32); border:1.5px solid rgba(255,200,130,.55); font-size:11px; }
   /* fullscreen button */
-  #fsBtn { position:fixed; top:8px; right:12%; z-index:20; pointer-events:auto;
+  #fsBtn { position:fixed; top:8px; right:38%; z-index:20; pointer-events:auto;
            padding:6px 10px; font-size:12px; color:#cfe; background:rgba(20,30,50,.6);
            border:1px solid rgba(120,160,220,.5); border-radius:6px; display:none;
            backdrop-filter:blur(2px); -webkit-backdrop-filter:blur(2px); font-family:'Courier New',monospace; }
-  #pauseBtn { position:fixed; top:8px; left:12%; z-index:20; pointer-events:auto;
+  #pauseBtn { position:fixed; top:8px; left:38%; z-index:20; pointer-events:auto;
            width:34px; height:30px; font-size:13px; color:#fe9; background:rgba(20,30,50,.6);
            border:1px solid rgba(220,180,120,.5); border-radius:6px; display:none;
            backdrop-filter:blur(2px); -webkit-backdrop-filter:blur(2px); font-family:'Courier New',monospace; }
-  #installBtn { position:fixed; top:8px; right:calc(12% + 84px); z-index:20; pointer-events:auto;
+  #installBtn { position:fixed; top:8px; right:calc(38% + 84px); z-index:20; pointer-events:auto;
            padding:6px 10px; font-size:12px; color:#cfe; background:rgba(30,60,40,.7);
            border:1px solid rgba(120,220,150,.55); border-radius:6px; display:none;
            backdrop-filter:blur(2px); -webkit-backdrop-filter:blur(2px); font-family:'Courier New',monospace; }
@@ -616,7 +616,7 @@ function update(){
   if(state==='TRANS'){ transTimer--;
     particles.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=0.15;p.life--;}); particles=particles.filter(p=>p.life>0);
     drops.forEach(d=>{d.t++;d.y+=d.vy;d.vy+=0.18;if(d.y>GROUND-12){d.y=GROUND-12;d.vy=0;}});
-    if(transTimer<=0){ level++; if(level>=5){ recordScore(true); state='VICTORY'; stopMusic(); return; } state='PLAY'; musicMode='none'; buildLevel(); }
+    if(transTimer<=0){ level++; if(level>=5){ recordScore(true); victoryT=0; state='VICTORY'; stopMusic(); return; } state='PLAY'; musicMode='none'; buildLevel(); }
     return;
   }
   if(player.fireCD>0)player.fireCD--; if(player.meleeCD>0)player.meleeCD--;
@@ -1132,6 +1132,7 @@ function drawDrops(){
     X.fillStyle=cols[d.type]; X.fillRect(sx-5,sy-5,10,10); X.fillStyle='#000'; X.fillRect(sx-4,sy-4,8,8);
     X.fillStyle=cols[d.type]; X.font='9px "Courier New"'; X.textAlign='center'; X.textBaseline='middle'; X.fillText(icons[d.type],sx,sy+1); X.textBaseline='alphabetic'; X.textAlign='left'; });
 }
+function particle(x,y,c,n){ for(let i=0;i<(n||1);i++)particles.push({x:x,y:y,vx:(Math.random()-.5)*4,vy:(Math.random()-.5)*4,life:12+Math.random()*8,c:c}); }
 function drawParticles(){ particles.forEach(p=>{ X.globalAlpha=Math.min(1,p.life/12); px(p.x-1,p.y-1,2,2,p.c); }); X.globalAlpha=1; }
 
 function drawHUD(){
@@ -1142,7 +1143,7 @@ function drawHUD(){
   X.textAlign='right'; X.font='8px "Courier New"';
   X.fillStyle=RANGED[player.rw].color; X.fillText('遠 '+RANGED[player.rw].name+' Lv'+player.rlvl[player.rw],VW-8,12);
   X.fillStyle=MELEE[player.mw].color; X.fillText('近 '+MELEE[player.mw].name+' Lv'+player.mlvl[player.mw],VW-8,24);
-  X.fillStyle='#fff'; X.fillText('SCORE '+String(score).padStart(7,'0'),VW-8,36); X.textAlign='left';
+  X.textAlign='center'; X.fillStyle='#fff'; X.font='bold 10px "Courier New"'; X.fillText(String(score).padStart(7,'0'),VW/2,11); X.textAlign='left';
   X.fillStyle='#fff'; X.font='8px "Courier New"'; X.textAlign='center'; X.fillText('STAGE '+(level+1)+' / 5  '+THEMES[level].name,VW/2,VH-6);
   if(!boss){ const prog=Math.min(1,player.x/(LV_LEN[level]-VW)); pxs(VW/2-50,VH-16,100,3,'#222'); pxs(VW/2-50,VH-16,100*prog,3,'#6af'); pxs(VW/2+50,VH-18,3,7,'#f55'); }
   X.textAlign='left';
@@ -1246,15 +1247,49 @@ function drawGameOver(){
   if(Math.floor(titleT++/24)%2===0){ X.fillStyle='#ffd24a'; X.font='11px "Courier New"'; X.fillText(isMobile?'點擊重新開始':'按 ENTER 重新開始',VW/2,240); }
   X.textAlign='left';
 }
+let victoryT=0;
+function drawTransport(x,y,s){ // 大型戰鬥運輸艦（側視，機首朝右）
+  X.save(); X.translate(x,y); X.scale(s,s);
+  X.fillStyle='rgba(130,200,255,'+(0.45+0.25*Math.sin(titleT*0.7))+')'; X.fillRect(-66,-10,16,6); X.fillRect(-66,4,16,6); // 引擎噴焰
+  X.fillStyle='#2a323d'; X.fillRect(-30,-30,34,16); X.fillRect(-30,16,34,14);          // 上下翼
+  X.fillStyle='#3a4452'; X.fillRect(-58,-16,104,34);                                    // 主船體
+  X.fillStyle='#4d5a6b'; X.fillRect(-58,-16,104,6);                                      // 上緣高光
+  X.fillStyle='#2a323d'; X.fillRect(-58,12,104,6);                                       // 下緣陰影
+  X.fillStyle='#3a4452'; X.beginPath(); X.moveTo(46,-16); X.lineTo(72,-2); X.lineTo(72,12); X.lineTo(46,18); X.closePath(); X.fill(); // 機首
+  X.fillStyle='#8fd4ff'; X.fillRect(54,-6,12,8);                                         // 駕駛艙
+  X.fillStyle='#d4af37'; X.fillRect(-52,-1,92,3);                                        // 金線
+  X.fillStyle='#1a1f27'; X.fillRect(-58,-12,6,8); X.fillRect(-58,4,6,8);                 // 尾噴口
+  X.fillStyle='#c43d2e'; X.fillRect(-10,-13,18,4);                                       // 帝國徽標
+  X.restore();
+}
 function drawVictory(){
-  X.fillStyle='#000'; X.fillRect(0,0,VW,VH); titleT++;
-  X.fillStyle='#fff'; for(let i=0;i<60;i++){ const sx=(i*61+titleT*0.5)%VW,sy=(i*41)%VH; X.fillRect(sx,sy,1,1);} X.textAlign='center';
-  X.fillStyle='#ffd24a'; X.font='bold 22px "Courier New"'; X.fillText('★ 勝 利 ★',VW/2,40);
-  X.fillStyle='#5ad6ff'; X.font='11px "Courier New"'; X.fillText('巢皇已殞落 — THE EMPEROR PROTECTS',VW/2,60);
-  X.fillStyle='#e23a3a'; X.font='bold 13px "Courier New"'; X.fillText('FINAL SCORE  '+score,VW/2,82);
-  if(lastRank===0){ X.fillStyle='#ffd24a'; X.font='bold 11px "Courier New"'; X.fillText('★ 最高分新紀錄！★',VW/2,100); }
-  drawLeaderboard(124);
-  if(Math.floor(titleT/24)%2===0){ X.fillStyle='#aaa'; X.font='10px "Courier New"'; X.fillText(isMobile?'點擊再玩一次':'按 ENTER 再玩一次',VW/2,240); }
+  victoryT++;
+  const g=X.createLinearGradient(0,0,0,VH); g.addColorStop(0,'#0a0a18'); g.addColorStop(1,'#1a1430');
+  X.fillStyle=g; X.fillRect(0,0,VW,VH);
+  X.fillStyle='#fff'; for(let i=0;i<70;i++){ const sx=(i*53+victoryT*0.3)%VW, sy=(i*37)%GROUND; X.globalAlpha=0.25+0.4*((i*7)%10)/10; X.fillRect(sx,sy,1,1);} X.globalAlpha=1;
+  X.fillStyle='#14182a'; X.fillRect(0,GROUND,VW,VH-GROUND); X.fillStyle='#0a0e1c'; X.fillRect(0,GROUND,VW,3);
+  const mx=VW*0.34, LG=LEGIONS[selLegion];
+  const tIn=Math.min(1,Math.max(0,(victoryT-50)/100));    // 運輸艦降臨
+  const tBeam=Math.min(1,Math.max(0,(victoryT-150)/80));  // 牽引上艦
+  const tOut=Math.min(1,Math.max(0,(victoryT-235)/100));  // 起飛離去
+  let shipX,shipY;
+  if(tOut>0){ const e2=tOut*tOut; shipX=mx+e2*(VW+140-mx); shipY=72-e2*170; }
+  else { const e2=1-(1-tIn)*(1-tIn); shipX=(VW+90)+e2*(mx-(VW+90)); shipY=-44+e2*116; }
+  let marTop=GROUND-30;
+  if(tOut>0) marTop=shipY+6;
+  else if(tBeam>0) marTop=(GROUND-30)+tBeam*((72+6)-(GROUND-30));
+  if(tBeam>0 && tOut<0.5){ X.fillStyle='rgba(150,205,255,'+(0.22*(1-tOut*2))+')'; X.beginPath(); X.moveTo(shipX-12,shipY+16); X.lineTo(shipX+12,shipY+16); X.lineTo(mx+18,GROUND); X.lineTo(mx-18,GROUND); X.closePath(); X.fill(); }
+  if(tOut<1) drawMiniMarine(mx, marTop, LG.color, LG.trim);
+  drawTransport(shipX, shipY, 1.15);
+  X.textAlign='center';
+  const ta=Math.min(1,victoryT/40);
+  X.globalAlpha=ta; X.fillStyle='#5ad6ff'; X.font='bold 32px "Courier New"'; X.fillText('ALL CLEAR',VW/2+2,52);
+  X.fillStyle='#ffd24a'; X.fillText('ALL CLEAR',VW/2,50); X.globalAlpha=1;
+  X.fillStyle='#9ec'; X.font='9px "Courier New"'; X.fillText('THE EMPEROR PROTECTS',VW/2,68);
+  X.fillStyle='#e23a3a'; X.font='bold 12px "Courier New"'; X.fillText('FINAL SCORE  '+score,VW/2,86);
+  if(lastRank===0){ X.fillStyle='#ffd24a'; X.font='bold 10px "Courier New"'; X.fillText('★ NEW HIGH SCORE ★',VW/2,102); }
+  if(victoryT>320){ drawLeaderboard(120);
+    if(Math.floor(victoryT/24)%2===0){ X.fillStyle='#aaa'; X.font='10px "Courier New"'; X.fillText(isMobile?'點擊再玩一次':'按 ENTER 再玩一次',VW/2,250); } }
   X.textAlign='left';
 }
 function handleStart(){ initAudio().then(()=>{ if(state==='TITLE'||state==='GAMEOVER'||state==='VICTORY')startGame(); }); }
@@ -1289,7 +1324,7 @@ loop();
 
 // ===== ULTIMATE / 大招 系統 (量子光砲) + 2.5x 難度 =====
 let pbeams=[], bbeams=[], screenShake=0;
-const ENEMY_DMG_MULT=2.5; // 敵人 & 魔王普攻傷害倍率
+const ENEMY_DMG_MULT=1.25; // 敵人 & 魔王普攻傷害倍率
 
 function ultimateUpdate(){
   updateBeams();
@@ -1381,9 +1416,9 @@ function drawBeams(){
 function drawChargeFX(){
   if(state!=='PLAY')return; const p=player; if(!p.chHold||p.chHold<1)return;
   const frac=Math.max(0,Math.min(1,(p.chHold-60)/120)), full=p.chHold>=180;
-  const bw=98,bh=12; let bx=VW-108, by=24, ox=0, oy=0;
+  const bw=150,bh=10; let bx=VW/2-bw/2, by=VH-44, ox=0, oy=0;
   if(full){ ox=(Math.random()-0.5)*4; oy=(Math.random()-0.5)*4; } // 完成時整體晃動
-  X.save(); X.textAlign='right';
+  X.save(); X.textAlign='center';
   if(full){ X.globalAlpha=0.35+0.4*Math.sin(titleT*0.8); X.fillStyle='#c9a8ff'; X.fillRect(bx-4+ox,by-4+oy,bw+8,bh+8); X.globalAlpha=1; } // 周圍閃爍發光
   X.fillStyle='rgba(10,8,20,0.82)'; X.fillRect(bx+ox,by+oy,bw,bh);
   if(p.chHold<60){ X.fillStyle='#555'; X.fillRect(bx+ox+1,by+oy+1,(bw-2)*(p.chHold/60),bh-2); }
@@ -1391,7 +1426,7 @@ function drawChargeFX(){
     X.fillStyle=grd; X.fillRect(bx+ox+1,by+oy+1,(bw-2)*frac,bh-2); }
   X.strokeStyle=full?'#fff':'#9f6bff'; X.lineWidth=1; X.strokeRect(bx+ox+0.5,by+oy+0.5,bw,bh);
   X.fillStyle=full?'#fff':'#b9a3e8'; X.font='bold 8px "Courier New"';
-  X.fillText(full?'★ 量子光砲 READY ★':'集氣中…', bx+bw+ox, by+oy-3);
+  X.fillText(full?'★ 量子光砲 READY ★':'集氣中…', VW/2+ox, by+oy-3);
   X.textAlign='left'; X.restore();
 }
 
