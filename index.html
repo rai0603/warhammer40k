@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="為了帝皇">
 <meta name="theme-color" content="#05060a">
-<meta name="build" content="2026.05.31.11">
+<meta name="build" content="2026.06.01.1">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; }
@@ -310,22 +310,23 @@ function buildTrack(song){
 async function initAudio(){
   if(audioReady) return;
   await Tone.start();
-  const master=new Tone.Compressor(-20,3).toDestination();
+  const limiter=new Tone.Limiter(-1).toDestination();
+  const master=new Tone.Compressor(-24,4).connect(limiter);
   const reverb=new Tone.Reverb(1.2); reverb.wet.value=0.15; reverb.connect(master);
-  const dist=new Tone.Distortion(0.32).connect(reverb);
+  const dist=new Tone.Distortion(0.12).connect(reverb);
   leadSynth=new Tone.PolySynth(Tone.Synth,{maxPolyphony:8,oscillator:{type:'square'},
-    envelope:{attack:0.005,decay:0.12,sustain:0.18,release:0.1},volume:-17}).connect(dist);
+    envelope:{attack:0.005,decay:0.12,sustain:0.18,release:0.1},volume:-19}).connect(dist);
   harmSynth=new Tone.PolySynth(Tone.Synth,{maxPolyphony:8,oscillator:{type:'triangle'},
     envelope:{attack:0.02,decay:0.3,sustain:0.4,release:0.3},volume:-25}).connect(reverb);
   bassSynth=new Tone.MonoSynth({oscillator:{type:'sawtooth'},filter:{Q:1,type:'lowpass'},
     envelope:{attack:0.005,decay:0.12,sustain:0.5,release:0.08},
     filterEnvelope:{attack:0.005,decay:0.08,sustain:0.4,baseFrequency:160,octaves:2.2},volume:-11}).connect(dist);
-  kickSynth=new Tone.MembraneSynth({pitchDecay:0.03,octaves:5,volume:-3}).connect(master);
+  kickSynth=new Tone.MembraneSynth({pitchDecay:0.03,octaves:5,volume:-8}).connect(master);
   snareSynth=new Tone.NoiseSynth({noise:{type:'white'},envelope:{attack:0.001,decay:0.14,sustain:0},volume:-15}).connect(master);
   hatSynth=new Tone.NoiseSynth({noise:{type:'white'},envelope:{attack:0.001,decay:0.03,sustain:0},volume:-28}).connect(master);
   sfxSynth=new Tone.Synth({oscillator:{type:'square'},envelope:{attack:0.001,decay:0.08,sustain:0,release:0.05},volume:-15}).connect(reverb);
   // dedicated hurt sound: low detuned thud + noise
-  hurtSynth=new Tone.MembraneSynth({pitchDecay:0.08,octaves:3,oscillator:{type:'sine'},envelope:{attack:0.001,decay:0.25,sustain:0,release:0.1},volume:-2}).connect(master);
+  hurtSynth=new Tone.MembraneSynth({pitchDecay:0.08,octaves:3,oscillator:{type:'sine'},envelope:{attack:0.001,decay:0.25,sustain:0,release:0.1},volume:-7}).connect(master);
 
   stageTracks=STAGE_SONGS.map(buildTrack);
   bossTrack=buildTrack(BOSS_SONG); menuTrack=buildMenuTrack();
